@@ -126,7 +126,8 @@ async def ensure_initialized():
 # --- Tool: validate (required by Puch) ---
 @mcp.tool
 async def validate() -> str:
-    return "validate: Server is running and ready to accept requests."
+    logger.info(f"NUMBER: {os.environ.get("MY_NUMBER")}")
+    return os.environ.get("MY_NUMBER") or ""
 
 # --- Tool: generate_mood_playlist ---
 GenerateMoodPlaylistDescription = RichToolDescription(
@@ -289,4 +290,6 @@ async def main():
             await playlist_generator.close()
 
 if __name__ == "__main__":
+    logger.info("🌟 Starting Mood Playlist MCP Server...")
     asyncio.run(main())
+    logger.info("🌟 Server shutdown complete.")
