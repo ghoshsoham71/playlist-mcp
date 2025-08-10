@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mood-based Playlist MCP Server
+Fixed Mood-based Playlist MCP Server
 Generates Spotify/Apple Music playlists based on mood, emojis, and language preferences
 """
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 TOKEN = os.environ.get("AUTH_TOKEN")
-MY_NUMBER = os.environ.get("MY_NUMBER")
+MY_NUMBER = os.environ.get("MY_NUMBER") 
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY")
 LASTFM_SHARED_SECRET = os.environ.get("LASTFM_SHARED_SECRET")
 
@@ -38,7 +38,7 @@ LASTFM_SHARED_SECRET = os.environ.get("LASTFM_SHARED_SECRET")
 SKIP_AI_MODELS = os.getenv("SKIP_AI_MODELS", "false").lower() == "true"
 
 assert TOKEN is not None, "Please set AUTH_TOKEN in your .env file"
-assert MY_NUMBER is not None, "Please set MY_NUMBER in your .env file"
+assert MY_NUMBER is not None, "Please set MY_NUMBER in your .env file" 
 assert LASTFM_API_KEY is not None, "Please set LASTFM_API_KEY in your .env file"
 assert LASTFM_SHARED_SECRET is not None, "Please set LASTFM_SHARED_SECRET in your .env file"
 
@@ -53,17 +53,11 @@ class SimpleBearerAuthProvider(BearerAuthProvider):
         if token == self.token:
             return AccessToken(
                 token=token,
-                client_id="mood-playlist-client",
+                client_id="mood-playlist-client", 
                 scopes=["*"],
                 expires_at=None,
             )
         return None
-
-# --- Rich Tool Description model ---
-class RichToolDescription(BaseModel):
-    description: str
-    use_when: str
-    side_effects: str | None = None
 
 # --- Import mood analysis components ---
 try:
@@ -166,19 +160,20 @@ def create_individual_song_links(artist: str, track: str) -> dict:
     }
 
 # --- Tool: validate (required by Puch) ---
-@mcp.tool
+@mcp.tool(
+    name="validate",
+    description="Validate server configuration and return authentication number"
+)
 async def validate() -> str:
+    """Validate server configuration"""
     logger.info(f"📱 Validation check - NUMBER: {os.environ.get('MY_NUMBER')}")
     return os.environ.get("MY_NUMBER") or ""
 
 # --- Tool: generate_mood_playlist ---
-GenerateMoodPlaylistDescription = RichToolDescription(
-    description="Generate a playlist based on user's mood query with natural language processing.",
-    use_when="Use this to create playlists from mood descriptions, emojis, duration, and language preferences.",
-    side_effects="Returns JSON with playlist information including tracks, mood analysis, and metadata.",
+@mcp.tool(
+    name="generate_mood_playlist", 
+    description="Generate a playlist based on user's mood query with natural language processing. Use this to create playlists from mood descriptions, emojis, duration, and language preferences."
 )
-
-@mcp.tool(description=GenerateMoodPlaylistDescription.model_dump_json())
 async def generate_mood_playlist(
     query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
 ) -> str:
@@ -217,13 +212,10 @@ async def generate_mood_playlist(
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist generation failed: {e}"))
 
 # --- Tool: generate_playlist_with_individual_links ---
-GeneratePlaylistWithLinksDescription = RichToolDescription(
-    description="Generate a playlist with individual clickable links for each song on Spotify, Apple Music, and YouTube.",
-    use_when="Use this when users want direct links to each song rather than generic playlist search links.",
-    side_effects="Returns formatted playlist with individual song links for each streaming platform.",
+@mcp.tool(
+    name="generate_playlist_with_individual_links",
+    description="Generate a playlist with individual clickable links for each song on Spotify, Apple Music, and YouTube. Use this when users want direct links to each song rather than generic playlist search links."
 )
-
-@mcp.tool(description=GeneratePlaylistWithLinksDescription.model_dump_json())
 async def generate_playlist_with_individual_links(
     query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
 ) -> str:
@@ -292,13 +284,10 @@ async def generate_playlist_with_individual_links(
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist with links generation failed: {e}"))
     
 # --- Tool: create_song_links ---
-CreateSongLinksDescription = RichToolDescription(
-    description="Create individual streaming platform links for a specific artist and song.",
-    use_when="Use this to generate clickable links for a single song across Spotify, Apple Music, and YouTube.",
-    side_effects="Returns formatted links for the specified song on multiple platforms.",
+@mcp.tool(
+    name="create_song_links",
+    description="Create individual streaming platform links for a specific artist and song. Use this to generate clickable links for a single song across Spotify, Apple Music, and YouTube."
 )
-
-@mcp.tool(description=CreateSongLinksDescription.model_dump_json())
 async def create_song_links(
     artist: Annotated[str, Field(description="Artist name")],
     song: Annotated[str, Field(description="Song title")]
@@ -330,13 +319,10 @@ async def create_song_links(
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Song link creation failed: {e}"))
 
 # --- Tool: get_supported_options ---
-GetSupportedOptionsDescription = RichToolDescription(
-    description="Get list of supported genres and languages for playlist generation.",
-    use_when="Use this to discover available options including languages, genres, and mood categories.",
-    side_effects="Returns comprehensive list of supported playlist generation options.",
+@mcp.tool(
+    name="get_supported_options",
+    description="Get list of supported genres and languages for playlist generation. Use this to discover available options including languages, genres, and mood categories."
 )
-
-@mcp.tool(description=GetSupportedOptionsDescription.model_dump_json())
 async def get_supported_options() -> str:
     """
     Get list of supported genres and languages for playlist generation.
@@ -377,13 +363,10 @@ async def get_supported_options() -> str:
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Failed to get options: {e}"))
 
 # --- Tool: analyze_mood_only ---
-AnalyzeMoodOnlyDescription = RichToolDescription(
-    description="Analyze mood and emotions from a query without generating playlist.",
-    use_when="Use this to understand mood, sentiment, and emotional content of text queries.",
-    side_effects="Returns detailed mood analysis including confidence scores and detected emotions.",
+@mcp.tool(
+    name="analyze_mood_only",
+    description="Analyze mood and emotions from a query without generating playlist. Use this to understand mood, sentiment, and emotional content of text queries."
 )
-
-@mcp.tool(description=AnalyzeMoodOnlyDescription.model_dump_json())
 async def analyze_mood_only(
     query: Annotated[str, Field(description="Text query to analyze for mood and emotions")]
 ) -> str:
@@ -424,13 +407,10 @@ async def analyze_mood_only(
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Mood analysis failed: {e}"))
 
 # --- Tool: server_health ---
-ServerHealthDescription = RichToolDescription(
-    description="Check server health and initialization status.",
-    use_when="Use this to verify server components are working properly.",
-    side_effects="Returns server status and component health information.",
+@mcp.tool(
+    name="server_health",
+    description="Check server health and initialization status. Use this to verify server components are working properly."
 )
-
-@mcp.tool(description=ServerHealthDescription.model_dump_json())
 async def server_health() -> str:
     """
     Check server health and component status.
