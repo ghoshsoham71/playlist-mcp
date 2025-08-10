@@ -10,6 +10,7 @@ import os
 import json
 import logging
 import sys
+import urllib.parse
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.bearer import BearerAuthProvider, RSAKeyPair
@@ -123,6 +124,19 @@ async def ensure_initialized():
             logger.error(f"Failed to initialize components: {str(e)}")
             raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Initialization failed: {e}"))
 
+# --- Helper function to create individual song links ---
+def create_individual_song_links(artist: str, track: str) -> dict:
+    """Create individual song search links for each platform"""
+    # Clean and encode the search query
+    search_query = f"{artist} {track}".strip()
+    encoded_query = urllib.parse.quote(search_query)
+    
+    return {
+        "spotify": f"https://open.spotify.com/search/{encoded_query}",
+        "apple_music": f"https://music.apple.com/search?term={encoded_query}",
+        "youtube": f"https://www.youtube.com/results?search_query={encoded_query}"
+    }
+
 # --- Tool: validate (required by Puch) ---
 @mcp.tool
 async def validate() -> str:
@@ -172,6 +186,107 @@ async def generate_mood_playlist(
         logger.error(f"Error generating playlist: {str(e)}")
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist generation failed: {e}"))
 
+# --- Tool: generate_playlist_with_individual_links ---
+GeneratePlaylistWithLinksDescription = RichToolDescription(
+    description="Generate a playlist with individual clickable links for each song on Spotify, Apple Music, and YouTube.",
+    use_when="Use this when users want direct links to each song rather than generic playlist search links.",
+    side_effects="Returns formatted playlist with individual song links for each streaming platform.",
+)
+
+@mcp.tool(description=GeneratePlaylistWithLinksDescription.model_dump_json())
+async def generate_playlist_with_individual_links(
+    query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
+) -> str:
+    """
+    Generate a playlist with individual links for each song on multiple platforms.
+    
+    Example: 'I want a 40 minutes playlist of hindi songs that makes me feel 😎'
+    """
+    try:
+        logger.info(f"Processing query with individual links: {query}")
+        
+        # Ensure components are initialized
+        await ensure_initialized()
+        if not mood_analyzer or not playlist_generator:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Server components not initialized properly"))
+        
+        # Parse and analyze the query
+        analysis = await mood_analyzer.analyze_query(query)
+        
+        # Generate base playlist data
+        playlist_data = await playlist_generator.generate_playlist_data(
+            mood=analysis['mood'],
+            genres=analysis['genres'],
+            languages=analysis['languages'],
+            duration_minutes=analysis['duration_minutes'],
+            energy_level=analysis['energy_level'],
+            valence=analysis['valence']
+        )
+        
+        # Format with individual links
+        lang_str = " & ".join(lang.title() for lang in analysis['languages'])
+        output = f"🎵 **{analysis['mood'].title()} {lang_str} Playlist** ({len(playlist_data['tracks'])} songs, ~{analysis['duration_minutes']} min)\n\n"
+        
+        for i, track in enumerate(playlist_data['tracks'], 1):
+            artist = track['artist']
+            song = track['track']
+            
+            # Create individual links
+            links = create_individual_song_links(artist, song)
+            
+            output += f"**{i}. {artist} - {song}**\n"
+            output += f"   🎧 [Spotify]({links['spotify']}) | [Apple Music]({links['apple_music']}) | [YouTube]({links['youtube']})\n\n"
+        
+        output += f"💡 **Mood Analysis:**\n"
+        output += f"• Detected mood: {analysis['mood'].title()}\n"
+        output += f"• Energy level: {analysis['energy_level']:.1f}/1.0\n"
+        output += f"• Languages: {', '.join(analysis['languages'])}\n"
+        if analysis['emojis']:
+            output += f"• Emojis detected: {' '.join(analysis['emojis'])}\n"
+        
+        return output
+        
+    except Exception as e:
+        logger.error(f"Error generating playlist with links: {str(e)}")
+        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist with links generation failed: {e}"))
+
+# --- Tool: create_song_links ---
+CreateSongLinksDescription = RichToolDescription(
+    description="Create individual streaming platform links for a specific artist and song.",
+    use_when="Use this to generate clickable links for a single song across Spotify, Apple Music, and YouTube.",
+    side_effects="Returns formatted links for the specified song on multiple platforms.",
+)
+
+@mcp.tool(description=CreateSongLinksDescription.model_dump_json())
+async def create_song_links(
+    artist: Annotated[str, Field(description="Artist name")],
+    song: Annotated[str, Field(description="Song title")]
+) -> str:
+    """
+    Create individual streaming platform links for a specific song.
+    
+    Args:
+        artist: Name of the artist
+        song: Title of the song
+        
+    Returns:
+        Formatted string with clickable links for Spotify, Apple Music, and YouTube
+    """
+    try:
+        links = create_individual_song_links(artist, song)
+        
+        output = f"🎵 **{artist} - {song}**\n\n"
+        output += f"🔗 **Listen on:**\n"
+        output += f"• [Spotify]({links['spotify']})\n"
+        output += f"• [Apple Music]({links['apple_music']})\n"
+        output += f"• [YouTube]({links['youtube']})\n"
+        
+        return output
+        
+    except Exception as e:
+        logger.error(f"Error creating song links: {str(e)}")
+        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Song link creation failed: {e}"))
+
 # --- Tool: get_supported_options ---
 GetSupportedOptionsDescription = RichToolDescription(
     description="Get list of supported genres and languages for playlist generation.",
@@ -188,28 +303,23 @@ async def get_supported_options() -> str:
         JSON string with available options including languages, genres, and mood categories
     """
     try:
-        success = await ensure_initialized()
+        await ensure_initialized()
         
-        if not success or not playlist_generator:
-            # Return static options if generator not available
-            options = {
-                "supported_languages": config.supported_languages,
-                "mood_categories": list(config.emotion_genre_map.keys()),
-                "popular_genres": config.get_all_genres(),
-                "duration_formats": [
-                    "30 minutes", "1 hour", "45 minutes", "5 songs", "10 tracks"
-                ],
-                "example_queries": [
-                    "I want a 40 minutes playlist of hindi songs that makes me feel 😎",
-                    "Generate a sad english playlist for 1 hour",
-                    "Create an energetic punjabi playlist with 10 songs",
-                    "I need romantic bollywood music for 30 minutes"
-                ]
-            }
-            return json.dumps(options, indent=2, ensure_ascii=False)
-        
-        options = await playlist_generator.get_supported_options()
-        return options
+        options = {
+            "supported_languages": config.supported_languages,
+            "mood_categories": list(config.emotion_genre_map.keys()),
+            "popular_genres": config.get_all_genres(),
+            "duration_formats": [
+                "30 minutes", "1 hour", "45 minutes", "5 songs", "10 tracks"
+            ],
+            "example_queries": [
+                "I want a 40 minutes playlist of hindi songs that makes me feel 😎",
+                "Generate a sad english playlist for 1 hour",
+                "Create an energetic punjabi playlist with 10 songs",
+                "I need romantic bollywood music for 30 minutes"
+            ]
+        }
+        return json.dumps(options, indent=2, ensure_ascii=False)
         
     except Exception as e:
         logger.error(f"Error getting supported options: {str(e)}")
@@ -274,6 +384,8 @@ async def main():
     logger.info("📝 Available tools:")
     logger.info(" - validate: Server validation (required)")
     logger.info(" - generate_mood_playlist: Create playlists from mood queries")
+    logger.info(" - generate_playlist_with_individual_links: Create playlists with individual song links")
+    logger.info(" - create_song_links: Generate links for a specific song")
     logger.info(" - get_supported_options: List available genres and languages")
     logger.info(" - analyze_mood_only: Analyze mood without generating playlist")
     
