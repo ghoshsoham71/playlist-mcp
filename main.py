@@ -193,6 +193,8 @@ GeneratePlaylistWithLinksDescription = RichToolDescription(
     side_effects="Returns formatted playlist with individual song links for each streaming platform.",
 )
 
+# This is the fixed version of the generate_playlist_with_individual_links function
+
 @mcp.tool(description=GeneratePlaylistWithLinksDescription.model_dump_json())
 async def generate_playlist_with_individual_links(
     query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
@@ -212,6 +214,7 @@ async def generate_playlist_with_individual_links(
         
         # Parse and analyze the query
         analysis = await mood_analyzer.analyze_query(query)
+        logger.info(f"Analysis complete: mood={analysis['mood']}, languages={analysis['languages']}")
         
         # Generate base playlist data
         playlist_data = await playlist_generator.generate_playlist_data(
@@ -223,9 +226,17 @@ async def generate_playlist_with_individual_links(
             valence=analysis['valence']
         )
         
-        # Format with individual links
+        logger.info(f"Playlist data generated: {len(playlist_data['tracks'])} tracks")
+        
+        # Check if we have tracks
+        if not playlist_data.get('tracks'):
+            return f"❌ Sorry, couldn't find any {analysis['mood']} {' & '.join(analysis['languages'])} songs. Try a different mood or language combination."
+        
+        # Format with individual links - FORCE PLAIN TEXT OUTPUT
         lang_str = " & ".join(lang.title() for lang in analysis['languages'])
-        output = f"🎵 **{analysis['mood'].title()} {lang_str} Playlist** ({len(playlist_data['tracks'])} songs, ~{analysis['duration_minutes']} min)\n\n"
+        
+        # Create a very simple, direct output that can't be misinterpreted
+        output = f"PLAYLIST: {analysis['mood'].title()} {lang_str} ({len(playlist_data['tracks'])} songs)\n\n"
         
         for i, track in enumerate(playlist_data['tracks'], 1):
             artist = track['artist']
@@ -234,22 +245,26 @@ async def generate_playlist_with_individual_links(
             # Create individual links
             links = create_individual_song_links(artist, song)
             
-            output += f"**{i}. {artist} - {song}**\n"
-            output += f"   🎧 [Spotify]({links['spotify']}) | [Apple Music]({links['apple_music']}) | [YouTube]({links['youtube']})\n\n"
+            output += f"{i}. {artist} - {song}\n"
+            output += f"Spotify: {links['spotify']}\n"
+            output += f"Apple Music: {links['apple_music']}\n"
+            output += f"YouTube: {links['youtube']}\n\n"
         
-        output += f"💡 **Mood Analysis:**\n"
-        output += f"• Detected mood: {analysis['mood'].title()}\n"
-        output += f"• Energy level: {analysis['energy_level']:.1f}/1.0\n"
-        output += f"• Languages: {', '.join(analysis['languages'])}\n"
-        if analysis['emojis']:
-            output += f"• Emojis detected: {' '.join(analysis['emojis'])}\n"
+        # Add analysis at the end
+        output += f"ANALYSIS: {analysis['mood']}, Energy: {analysis['energy_level']:.1f}, Languages: {', '.join(analysis['languages'])}"
+        
+        logger.info(f"Final response length: {len(output)} characters")
+        logger.info(f"First 200 chars: {output[:200]}")
         
         return output
         
     except Exception as e:
         logger.error(f"Error generating playlist with links: {str(e)}")
+        logger.error(f"Exception type: {type(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist with links generation failed: {e}"))
-
+    
 # --- Tool: create_song_links ---
 CreateSongLinksDescription = RichToolDescription(
     description="Create individual streaming platform links for a specific artist and song.",
