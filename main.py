@@ -140,7 +140,7 @@ def create_individual_song_links(artist: str, track: str) -> dict:
 # --- Tool: validate (required by Puch) ---
 @mcp.tool
 async def validate() -> str:
-    logger.info(f"NUMBER: {os.environ.get("MY_NUMBER")}")
+    logger.info(f"NUMBER: {os.environ.get('MY_NUMBER')}")
     return os.environ.get("MY_NUMBER") or ""
 
 # --- Tool: generate_mood_playlist ---
