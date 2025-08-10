@@ -5,26 +5,64 @@ Generates Spotify/Apple Music playlists based on mood, emojis, and language pref
 """
 
 import asyncio
-import logging
+from typing import Annotated
 import os
-import sys
 import json
-from typing import Dict, Any, Optional
+import logging
+import sys
 from dotenv import load_dotenv
+from fastmcp import FastMCP
+from fastmcp.server.auth.providers.bearer import BearerAuthProvider, RSAKeyPair
+from mcp import ErrorData, McpError
+from mcp.server.auth.provider import AccessToken
+from mcp.types import TextContent, INVALID_PARAMS, INTERNAL_ERROR
+from pydantic import BaseModel, Field
 
-# Configure logging first
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_env_result = load_dotenv()
-logger.info(f"Environment loaded: {load_env_result}")
+# --- Load environment variables ---
+load_dotenv()
 
+TOKEN = os.environ.get("AUTH_TOKEN")
+MY_NUMBER = os.environ.get("MY_NUMBER")
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY")
+LASTFM_SHARED_SECRET = os.environ.get("LASTFM_SHARED_SECRET")
+
+assert TOKEN is not None, "Please set AUTH_TOKEN in your .env file"
+assert MY_NUMBER is not None, "Please set MY_NUMBER in your .env file"
+assert LASTFM_API_KEY is not None, "Please set LASTFM_API_KEY in your .env file"
+assert LASTFM_SHARED_SECRET is not None, "Please set LASTFM_SHARED_SECRET in your .env file"
+
+# --- Auth Provider ---
+class SimpleBearerAuthProvider(BearerAuthProvider):
+    def __init__(self, token: str):
+        k = RSAKeyPair.generate()
+        super().__init__(public_key=k.public_key, jwks_uri=None, issuer=None, audience=None)
+        self.token = token
+
+    async def load_access_token(self, token: str) -> AccessToken | None:
+        if token == self.token:
+            return AccessToken(
+                token=token,
+                client_id="mood-playlist-client",
+                scopes=["*"],
+                expires_at=None,
+            )
+        return None
+
+# --- Rich Tool Description model ---
+class RichToolDescription(BaseModel):
+    description: str
+    use_when: str
+    side_effects: str | None = None
+
+# --- Import mood analysis components ---
 try:
-    from mcp.server.fastmcp import FastMCP
     from mood_analyzer import MoodAnalyzer
     from playlist_generator import PlaylistGenerator
     from config import Config
@@ -33,15 +71,18 @@ except ImportError as e:
     logger.error("Please install required packages: pip install mcp transformers torch emoji aiohttp python-dotenv")
     sys.exit(1)
 
-# Initialize configuration
+# --- Initialize configuration ---
 config = Config()
 
-# Initialize MCP server (remove host and port - FastMCP handles this differently)
-mcp = FastMCP("mood-playlist-server")
+# --- MCP Server Setup ---
+mcp = FastMCP(
+    "Mood Playlist MCP Server",
+    auth=SimpleBearerAuthProvider(TOKEN),
+)
 
-# Global components (will be lazily initialized)
-mood_analyzer: Optional[MoodAnalyzer] = None
-playlist_generator: Optional[PlaylistGenerator] = None
+# --- Global components (lazy initialization) ---
+mood_analyzer: MoodAnalyzer | None = None
+playlist_generator: PlaylistGenerator | None = None
 _initialization_lock = asyncio.Lock()
 _initialized = False
 
@@ -66,14 +107,12 @@ async def ensure_initialized():
             mood_analyzer = MoodAnalyzer()
             await mood_analyzer.initialize()
             
-            # Ensure API credentials are present
-            if not config.lastfm_api_key or not config.lastfm_shared_secret:
-                raise ValueError("LASTFM_API_KEY and LASTFM_SHARED_SECRET must be set in the environment or config.")
-
             # Initialize playlist generator
+            assert LASTFM_API_KEY is not None, "LASTFM_API_KEY must not be None"
+            assert LASTFM_SHARED_SECRET is not None, "LASTFM_SHARED_SECRET must not be None"
             playlist_generator = PlaylistGenerator(
-                config.lastfm_api_key,
-                config.lastfm_shared_secret
+                LASTFM_API_KEY,
+                LASTFM_SHARED_SECRET
             )
             
             _initialized = True
@@ -82,28 +121,36 @@ async def ensure_initialized():
             
         except Exception as e:
             logger.error(f"Failed to initialize components: {str(e)}")
-            return False
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Initialization failed: {e}"))
 
-@mcp.tool()
-async def generate_mood_playlist(query: str) -> str:
+# --- Tool: validate (required by Puch) ---
+@mcp.tool
+async def validate() -> str:
+    return "validate: Server is running and ready to accept requests."
+
+# --- Tool: generate_mood_playlist ---
+GenerateMoodPlaylistDescription = RichToolDescription(
+    description="Generate a playlist based on user's mood query with natural language processing.",
+    use_when="Use this to create playlists from mood descriptions, emojis, duration, and language preferences.",
+    side_effects="Returns JSON with playlist information including tracks, mood analysis, and metadata.",
+)
+
+@mcp.tool(description=GenerateMoodPlaylistDescription.model_dump_json())
+async def generate_mood_playlist(
+    query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
+) -> str:
     """
     Generate a playlist based on user's mood query.
     
-    Args:
-        query: Natural language query with mood, emojis, duration, and language preferences
-        
-    Returns:
-        JSON string with playlist information
-        
     Example: 'I want a 40 minutes playlist of hindi songs that makes me feel 😎'
     """
     try:
         logger.info(f"Processing query: {query}")
         
         # Ensure components are initialized
-        success = await ensure_initialized()
-        if not success or not mood_analyzer or not playlist_generator:
-            return json.dumps({"error": "Server components not initialized properly"}, indent=2)
+        await ensure_initialized()
+        if not mood_analyzer or not playlist_generator:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Server components not initialized properly"))
         
         # Parse and analyze the query
         analysis = await mood_analyzer.analyze_query(query)
@@ -122,9 +169,16 @@ async def generate_mood_playlist(query: str) -> str:
         
     except Exception as e:
         logger.error(f"Error generating playlist: {str(e)}")
-        return json.dumps({"error": str(e)}, indent=2)
+        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist generation failed: {e}"))
 
-@mcp.tool()
+# --- Tool: get_supported_options ---
+GetSupportedOptionsDescription = RichToolDescription(
+    description="Get list of supported genres and languages for playlist generation.",
+    use_when="Use this to discover available options including languages, genres, and mood categories.",
+    side_effects="Returns comprehensive list of supported playlist generation options.",
+)
+
+@mcp.tool(description=GetSupportedOptionsDescription.model_dump_json())
 async def get_supported_options() -> str:
     """
     Get list of supported genres and languages for playlist generation.
@@ -158,25 +212,28 @@ async def get_supported_options() -> str:
         
     except Exception as e:
         logger.error(f"Error getting supported options: {str(e)}")
-        return json.dumps({"error": str(e)}, indent=2)
+        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Failed to get options: {e}"))
 
-@mcp.tool()
-async def analyze_mood_only(query: str) -> str:
+# --- Tool: analyze_mood_only ---
+AnalyzeMoodOnlyDescription = RichToolDescription(
+    description="Analyze mood and emotions from a query without generating playlist.",
+    use_when="Use this to understand mood, sentiment, and emotional content of text queries.",
+    side_effects="Returns detailed mood analysis including confidence scores and detected emotions.",
+)
+
+@mcp.tool(description=AnalyzeMoodOnlyDescription.model_dump_json())
+async def analyze_mood_only(
+    query: Annotated[str, Field(description="Text query to analyze for mood and emotions")]
+) -> str:
     """
     Analyze mood and emotions from a query without generating playlist.
-    
-    Args:
-        query: Text query to analyze for mood and emotions
-        
-    Returns:
-        JSON string with mood analysis results
     """
     try:
         logger.info(f"Analyzing mood for query: {query}")
         
-        success = await ensure_initialized()
-        if not success or not mood_analyzer:
-            return json.dumps({"error": "Mood analyzer not initialized"}, indent=2)
+        await ensure_initialized()
+        if not mood_analyzer:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Mood analyzer not initialized"))
         
         analysis = await mood_analyzer.analyze_query(query)
         
@@ -199,47 +256,37 @@ async def analyze_mood_only(query: str) -> str:
         
     except Exception as e:
         logger.error(f"Error analyzing mood: {str(e)}")
-        return json.dumps({"error": str(e)}, indent=2)
+        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Mood analysis failed: {e}"))
 
-def main():
-    """Main server entry point"""
+# --- Run MCP Server ---
+async def main():
+    print("🎵 Starting Mood Playlist MCP Server on http://0.0.0.0:8086")
+    
+    # Check environment variables before starting
+    if not LASTFM_API_KEY or not LASTFM_SHARED_SECRET:
+        logger.error("❌ Missing Last.fm API credentials!")
+        logger.error("Please set LASTFM_API_KEY and LASTFM_SHARED_SECRET environment variables")
+        logger.error("You can get these from: https://www.last.fm/api")
+        sys.exit(1)
+
+    logger.info("🎵 Mood Playlist MCP Server is ready!")
+    logger.info("📝 Available tools:")
+    logger.info(" - validate: Server validation (required)")
+    logger.info(" - generate_mood_playlist: Create playlists from mood queries")
+    logger.info(" - get_supported_options: List available genres and languages")
+    logger.info(" - analyze_mood_only: Analyze mood without generating playlist")
+    
     try:
-        logger.info("🎵 Starting Mood Playlist MCP Server...")
-        
-        # Check environment variables before starting
-        if not os.getenv("LASTFM_API_KEY") or not os.getenv("LASTFM_SHARED_SECRET"):
-            logger.error("❌ Missing Last.fm API credentials!")
-            logger.error("Please set LASTFM_API_KEY and LASTFM_SHARED_SECRET environment variables")
-            logger.error("You can get these from: https://www.last.fm/api")
-            sys.exit(1)
-
-        logger.info("🎵 Mood Playlist MCP Server is ready!")
-        logger.info("📝 Available tools:")
-        logger.info("  - generate_mood_playlist: Create playlists from mood queries")
-        logger.info("  - get_supported_options: List available genres and languages")
-        logger.info("  - analyze_mood_only: Analyze mood without generating playlist")
-        
-        # Start the FastMCP server (components will be initialized on first use)
-        mcp.run()
-        
+        await mcp.run_async("streamable-http", host="0.0.0.0", port=8086)
     except KeyboardInterrupt:
         logger.info("🛑 Server stopped by user")
     except Exception as e:
         logger.error(f"❌ Server error: {str(e)}")
-        sys.exit(1)
+        raise
     finally:
         # Cleanup
-        async def cleanup():
-            global playlist_generator
-            if playlist_generator:
-                await playlist_generator.close()
-        
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(cleanup())
-        except:
-            pass
+        if playlist_generator:
+            await playlist_generator.close()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
