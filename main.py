@@ -225,11 +225,18 @@ async def generate_playlist(
     logger.info(f"🎵 Playlist requested: {query}")
     
     try:
-        await ensure_initialized()
+        # Ensure initialization before each request
+        init_success = await ensure_initialized()
+        if not init_success:
+            return json.dumps({
+                "error": "Server components failed to initialize",
+                "query": query,
+                "status": "failed"
+            }, indent=2)
         
         if not mood_analyzer or not playlist_generator:
             return json.dumps({
-                "error": "Server components not initialized",
+                "error": "Server components not available",
                 "query": query,
                 "status": "failed"
             }, indent=2)
@@ -238,14 +245,21 @@ async def generate_playlist(
         analysis = await mood_analyzer.analyze_query(query)
         logger.info(f"📊 Analysis: mood={analysis['mood']}, languages={analysis['languages']}")
         
-        # Generate playlist data
-        playlist_data = await playlist_generator.generate_playlist_data(
-            mood=analysis['mood'],
-            genres=analysis['genres'],
-            languages=analysis['languages'],
-            duration_minutes=analysis['duration_minutes'],
-            energy_level=analysis['energy_level'],
-            valence=analysis['valence']
+        # Ensure session is available for playlist generator
+        if not playlist_generator.session or playlist_generator.session.closed:
+            playlist_generator.session = None  # Will be recreated in _make_request
+        
+        # Generate playlist data with timeout
+        playlist_data = await asyncio.wait_for(
+            playlist_generator.generate_playlist_data(
+                mood=analysis['mood'],
+                genres=analysis['genres'],
+                languages=analysis['languages'],
+                duration_minutes=analysis['duration_minutes'],
+                energy_level=analysis['energy_level'],
+                valence=analysis['valence']
+            ),
+            timeout=60.0  # 60 second timeout for playlist generation
         )
         
         if not playlist_data.get('tracks'):
@@ -270,6 +284,13 @@ async def generate_playlist(
         logger.info(f"✅ Playlist generated successfully")
         return output
         
+    except asyncio.TimeoutError:
+        logger.error("❌ Playlist generation timed out")
+        return json.dumps({
+            "error": "Playlist generation timed out. Please try again.",
+            "query": query,
+            "status": "timeout"
+        }, indent=2)
     except Exception as e:
         logger.error(f"❌ Playlist generation failed: {e}")
         return json.dumps({
@@ -375,6 +396,7 @@ if __name__ == "__main__":
     try:
         # Register cleanup for proper shutdown
         import signal
+        
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler())
         signal.signal(signal.SIGINT, lambda s, f: signal_handler())
         

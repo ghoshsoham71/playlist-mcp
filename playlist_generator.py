@@ -10,7 +10,7 @@ import logging
 import random
 import hashlib
 import urllib.parse
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import aiohttp
 
 logger = logging.getLogger(__name__)
@@ -22,19 +22,24 @@ class PlaylistGenerator:
         self.api_key = lastfm_api_key
         self.shared_secret = lastfm_shared_secret
         self.base_url = "http://ws.audioscrobbler.com/2.0/"
-        self.session = None
+        self.session: Optional[aiohttp.ClientSession] = None
         
+    async def _ensure_session(self):
+        """Ensure we have a valid session"""
+        if not self.session or self.session.closed:
+            self.session = aiohttp.ClientSession()
+            
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
+        await self._ensure_session()
         return self
         
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
+        if self.session and not self.session.closed:
             await self.session.close()
             
     async def close(self):
         """Close the HTTP session"""
-        if self.session:
+        if self.session and not self.session.closed:
             await self.session.close()
             self.session = None
 
@@ -47,8 +52,12 @@ class PlaylistGenerator:
 
     async def _make_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Make authenticated request to Last.fm API"""
-        if not self.session:
-            self.session = aiohttp.ClientSession()
+        await self._ensure_session()
+        
+        # Double-check session is valid
+        if not self.session or self.session.closed:
+            logger.error("Session is None or closed after _ensure_session()")
+            return {}
             
         params.update({
             'method': method,
@@ -57,23 +66,31 @@ class PlaylistGenerator:
         })
         
         try:
-            timeout = aiohttp.ClientTimeout(total=10)
+            timeout = aiohttp.ClientTimeout(total=15)
             async with self.session.get(self.base_url, params=params, timeout=timeout) as response:
+                response_text = await response.text()
                 if response.status == 200:
-                    data = await response.json()
-                    if 'error' in data:
-                        logger.error(f"Last.fm API error: {data.get('message', 'Unknown error')}")
+                    try:
+                        data = json.loads(response_text)
+                        if 'error' in data:
+                            logger.error(f"Last.fm API error: {data.get('message', 'Unknown error')}")
+                            return {}
+                        return data
+                    except json.JSONDecodeError as je:
+                        logger.error(f"JSON decode error: {je}, response: {response_text[:200]}")
                         return {}
-                    return data
                 else:
-                    logger.error(f"HTTP error {response.status}")
+                    logger.error(f"HTTP error {response.status}: {response_text[:200]}")
                     return {}
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, aiohttp.ServerTimeoutError):
             logger.error(f"Request timeout for method: {method}")
+            return {}
+        except aiohttp.ClientError as ce:
+            logger.error(f"Client error for {method}: {ce}")
             return {}
         except Exception as e:
             logger.error(f"Request failed for {method}: {e}")
-            return {}
+            return {}    
 
     def _extract_tracks_from_response(self, data: Dict, response_key: str) -> List[Dict[str, str]]:
         """Extract tracks from various API response formats"""
@@ -253,7 +270,7 @@ class PlaylistGenerator:
         
         logger.info(f"Using {len(search_strategies)} search strategies")
         
-        # Execute search strategies
+        # Execute search strategies with better error handling
         for strategy_type, query in search_strategies:
             try:
                 if strategy_type == 'tag':
@@ -272,20 +289,20 @@ class PlaylistGenerator:
                 all_tracks.extend(relevant_tracks)
                 logger.info(f"Strategy '{query}' yielded {len(relevant_tracks)} relevant tracks")
                 
-                # Rate limiting
-                await asyncio.sleep(0.2)
+                # Rate limiting - reduced delay
+                await asyncio.sleep(0.1)
                 
             except Exception as e:
                 logger.warning(f"Error with strategy '{query}': {e}")
                 continue
         
-        # Strategy 4: Get tracks from relevant artists
-        for tag in artist_search_strategies[:3]:
+        # Strategy 4: Get tracks from relevant artists (with reduced calls)
+        for tag in artist_search_strategies[:2]:  # Reduced from 3 to 2
             try:
-                artists = await self.search_artists_by_tag(tag, limit=10)
-                for artist in artists[:5]:  # Limit to prevent too many calls
+                artists = await self.search_artists_by_tag(tag, limit=8)  # Reduced from 10
+                for artist in artists[:3]:  # Reduced from 5 to 3
                     try:
-                        artist_tracks = await self.get_artist_top_tracks(artist, limit=5)
+                        artist_tracks = await self.get_artist_top_tracks(artist, limit=3)  # Reduced from 5
                         relevant_tracks = []
                         for track in artist_tracks:
                             if self._is_language_relevant(track['artist'], track['track'], languages):
@@ -376,6 +393,6 @@ class PlaylistGenerator:
         """Cleanup when object is destroyed"""
         if self.session and not self.session.closed:
             try:
-                asyncio.get_event_loop().create_task(self.close())
+                asyncio.create_task(self.close())
             except RuntimeError:
                 pass
