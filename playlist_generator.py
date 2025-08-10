@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class PlaylistGenerator:
     """Generate playlists based on mood and preferences using Last.fm API"""
     
-    def __init__(self, lastfm_api_key: str, lastfm_shared_secret: str):
+    def __init__(self, lastfm_api_key: str | None, lastfm_shared_secret: str | None):
         self.api_key = lastfm_api_key
         self.shared_secret = lastfm_shared_secret
         self.base_url = "http://ws.audioscrobbler.com/2.0/"
@@ -41,8 +41,8 @@ class PlaylistGenerator:
     def _create_signature(self, params: Dict[str, str]) -> str:
         """Create API signature for Last.fm"""
         sorted_params = sorted(params.items())
-        sig_string = ''.join([f"{k}{v}" for k, v in sorted_params])
-        sig_string += self.shared_secret
+        sig_string = ''.join([f"{k}{v}" for k, v in sorted_params]) 
+        sig_string += str(self.shared_secret)
         return hashlib.md5(sig_string.encode('utf-8')).hexdigest()
 
     async def _make_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-Fixed Mood-based Playlist MCP Server
-Generates Spotify/Apple Music playlists based on mood, emojis, and language preferences
+Render-Compatible Mood-based Playlist MCP Server
+Fixed for proper deployment on Render.com
 """
 
 import asyncio
-from typing import Annotated
+from typing import Annotated, Optional
 import os
 import json
 import logging
 import sys
 import urllib.parse
-from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.bearer import BearerAuthProvider, RSAKeyPair
 from mcp import ErrorData, McpError
@@ -26,21 +25,41 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Load environment variables ---
-load_dotenv()
+# --- Load environment variables with proper fallbacks ---
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    logger.info("✅ dotenv loaded")
+except ImportError:
+    logger.info("⚠️ dotenv not available, using system environment variables")
 
+# Get environment variables with proper type handling
+PORT = int(os.environ.get("PORT", "8086"))
 TOKEN = os.environ.get("AUTH_TOKEN")
-MY_NUMBER = os.environ.get("MY_NUMBER") 
-LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY")
-LASTFM_SHARED_SECRET = os.environ.get("LASTFM_SHARED_SECRET")
+MY_NUMBER: Optional[str] = os.environ.get("MY_NUMBER") 
+LASTFM_API_KEY: Optional[str] = os.environ.get("LASTFM_API_KEY")
+LASTFM_SHARED_SECRET: Optional[str] = os.environ.get("LASTFM_SHARED_SECRET")
 
 # Skip AI model loading in production to avoid timeouts
-SKIP_AI_MODELS = os.getenv("SKIP_AI_MODELS", "false").lower() == "true"
+SKIP_AI_MODELS_ENV = os.getenv("SKIP_AI_MODELS", "true")
+SKIP_AI_MODELS = SKIP_AI_MODELS_ENV.lower() in ("true", "1", "yes")
 
-assert TOKEN is not None, "Please set AUTH_TOKEN in your .env file"
-assert MY_NUMBER is not None, "Please set MY_NUMBER in your .env file" 
-assert LASTFM_API_KEY is not None, "Please set LASTFM_API_KEY in your .env file"
-assert LASTFM_SHARED_SECRET is not None, "Please set LASTFM_SHARED_SECRET in your .env file"
+# Validate required environment variables
+if not TOKEN:
+    logger.error("❌ AUTH_TOKEN environment variable is required")
+    sys.exit(1)
+if not MY_NUMBER:
+    logger.error("❌ MY_NUMBER environment variable is required")
+    sys.exit(1)
+if not LASTFM_API_KEY:
+    logger.error("❌ LASTFM_API_KEY environment variable is required")
+    sys.exit(1)
+if not LASTFM_SHARED_SECRET:
+    logger.error("❌ LASTFM_SHARED_SECRET environment variable is required")
+    sys.exit(1)
+
+logger.info(f"🔑 Environment validated successfully")
+logger.info(f"🌐 Server will bind to port: {PORT}")
 
 # --- Auth Provider ---
 class SimpleBearerAuthProvider(BearerAuthProvider):
@@ -48,108 +67,94 @@ class SimpleBearerAuthProvider(BearerAuthProvider):
         k = RSAKeyPair.generate()
         super().__init__(public_key=k.public_key, jwks_uri=None, issuer=None, audience=None)
         self.token = token
+        logger.info(f"🔐 Auth provider initialized")
 
-    async def load_access_token(self, token: str) -> AccessToken | None:
+    async def load_access_token(self, token: str) -> Optional[AccessToken]:
+        logger.info(f"🔍 Token verification attempt")
         if token == self.token:
+            logger.info("✅ Token validation successful")
             return AccessToken(
                 token=token,
-                client_id="mood-playlist-client", 
+                client_id="mood-playlist-client",
                 scopes=["*"],
                 expires_at=None,
             )
+        logger.warning("❌ Token validation failed")
         return None
 
-# --- Import mood analysis components ---
+# --- Import components with error handling ---
 try:
     from mood_analyzer import MoodAnalyzer
     from playlist_generator import PlaylistGenerator
     from config import Config
+    logger.info("✅ All components imported successfully")
 except ImportError as e:
-    logger.error(f"Import error: {e}")
-    logger.error("Please install required packages: pip install mcp transformers torch emoji aiohttp python-dotenv")
+    logger.error(f"❌ Failed to import components: {e}")
     sys.exit(1)
-
-# --- Initialize configuration ---
-config = Config()
-
+    
 # --- MCP Server Setup ---
+logger.info("🚀 Creating FastMCP server instance...")
 mcp = FastMCP(
     "Mood Playlist MCP Server",
     auth=SimpleBearerAuthProvider(TOKEN),
 )
 
-# --- Global components (lazy initialization) ---
-mood_analyzer: MoodAnalyzer | None = None
-playlist_generator: PlaylistGenerator | None = None
+# --- Global components ---
+mood_analyzer: Optional[MoodAnalyzer] = None
+playlist_generator: Optional[PlaylistGenerator] = None
+config: Optional[Config] = None
 _initialization_lock = asyncio.Lock()
 _initialized = False
 
 async def ensure_initialized():
-    """Ensure components are initialized with timeout protection"""
-    global mood_analyzer, playlist_generator, _initialized
+    """Ensure components are initialized"""
+    global mood_analyzer, playlist_generator, config, _initialized
     
     if _initialized:
         return True
     
     async with _initialization_lock:
-        if _initialized:  # Double-check after acquiring lock
+        if _initialized:
             return True
             
         try:
             logger.info("🎵 Initializing server components...")
             
-            # Validate configuration
-            config.validate()
+            # Initialize configuration
+            config = Config()
             
-            # Initialize mood analyzer with timeout protection
+            # Initialize mood analyzer
             mood_analyzer = MoodAnalyzer()
             
-            # Skip AI model loading in production to prevent timeouts
+            # Skip AI models for faster startup
             if SKIP_AI_MODELS:
-                logger.info("⚠️ Skipping AI model initialization (SKIP_AI_MODELS=true)")
-                logger.info("✅ Using rule-based mood analysis for faster performance")
+                logger.info("⚠️ Skipping AI model initialization for faster startup")
                 mood_analyzer.initialized = False
             else:
-                logger.info("🤖 Attempting to load AI models...")
                 try:
-                    # Add overall timeout for initialization
-                    await asyncio.wait_for(mood_analyzer.initialize(), timeout=45.0)
-                    if mood_analyzer.initialized:
-                        logger.info("✅ AI models loaded successfully")
-                    else:
-                        logger.info("⚠️ AI models failed to load, using rule-based analysis")
+                    await asyncio.wait_for(mood_analyzer.initialize(), timeout=30.0)
+                    logger.info("✅ AI models loaded" if mood_analyzer.initialized else "⚠️ Using rule-based analysis")
                 except asyncio.TimeoutError:
-                    logger.warning("⚠️ AI model loading timed out after 45 seconds")
-                    logger.info("✅ Falling back to rule-based mood analysis")
+                    logger.info("⚠️ AI model loading timed out, using rule-based analysis")
                     mood_analyzer.initialized = False
                 except Exception as e:
-                    logger.warning(f"⚠️ AI model initialization failed: {e}")
-                    logger.info("✅ Using rule-based mood analysis")
+                    logger.info(f"⚠️ AI model loading failed: {e}, using rule-based analysis")
                     mood_analyzer.initialized = False
             
             # Initialize playlist generator
-            assert LASTFM_API_KEY is not None, "LASTFM_API_KEY must not be None"
-            assert LASTFM_SHARED_SECRET is not None, "LASTFM_SHARED_SECRET must not be None"
-            playlist_generator = PlaylistGenerator(
-                LASTFM_API_KEY,
-                LASTFM_SHARED_SECRET
-            )
+            playlist_generator = PlaylistGenerator(LASTFM_API_KEY, LASTFM_SHARED_SECRET)
             
             _initialized = True
-            
-            # Log final status
-            analysis_type = "AI-enhanced" if (mood_analyzer and mood_analyzer.initialized) else "Rule-based"
-            logger.info(f"✅ All components initialized successfully using {analysis_type} analysis")
+            logger.info("✅ All components initialized successfully")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to initialize components: {str(e)}")
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Initialization failed: {e}"))
+            logger.error(f"❌ Initialization failed: {e}")
+            return False
 
-# --- Helper function to create individual song links ---
+# --- Helper functions ---
 def create_individual_song_links(artist: str, track: str) -> dict:
     """Create individual song search links for each platform"""
-    # Clean and encode the search query
     search_query = f"{artist} {track}".strip()
     encoded_query = urllib.parse.quote(search_query)
     
@@ -159,84 +164,81 @@ def create_individual_song_links(artist: str, track: str) -> dict:
         "youtube": f"https://www.youtube.com/results?search_query={encoded_query}"
     }
 
-# --- Tool: validate (required by Puch) ---
+# --- Tools ---
+
 @mcp.tool(
-    name="validate",
-    description="Validate server configuration and return authentication number"
+    name="ping",
+    description="Simple connectivity test"
+)
+async def ping() -> str:
+    """Test server connectivity"""
+    logger.info("🏓 Ping received")
+    return "pong - server is running!"
+
+@mcp.tool(
+    name="validate", 
+    description="Server validation endpoint (required)"
 )
 async def validate() -> str:
-    """Validate server configuration"""
-    logger.info(f"📱 Validation check - NUMBER: {os.environ.get('MY_NUMBER')}")
-    return os.environ.get("MY_NUMBER") or ""
+    """Validate server and return number"""
+    logger.info(f"📱 Validation requested")
+    return MY_NUMBER or "No number configured"
 
-# --- Tool: generate_mood_playlist ---
 @mcp.tool(
-    name="generate_mood_playlist", 
-    description="Generate a playlist based on user's mood query with natural language processing. Use this to create playlists from mood descriptions, emojis, duration, and language preferences."
+    name="server_health",
+    description="Check server health and component status"
 )
-async def generate_mood_playlist(
-    query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
-) -> str:
-    """
-    Generate a playlist based on user's mood query.
+async def server_health() -> str:
+    """Check server health"""
+    logger.info("🏥 Health check requested")
     
-    Example: 'I want a 40 minutes playlist of hindi songs that makes me feel 😎'
-    """
-    try:
-        logger.info(f"🎵 Processing query: {query}")
-        
-        # Ensure components are initialized
-        await ensure_initialized()
-        if not mood_analyzer or not playlist_generator:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Server components not initialized properly"))
-        
-        # Parse and analyze the query
-        analysis = await mood_analyzer.analyze_query(query)
-        logger.info(f"📊 Analysis complete: mood={analysis['mood']}, languages={analysis['languages']}")
-        
-        # Generate playlist
-        playlist = await playlist_generator.generate_playlist(
-            mood=analysis['mood'],
-            genres=analysis['genres'],
-            languages=analysis['languages'],
-            duration_minutes=analysis['duration_minutes'],
-            energy_level=analysis['energy_level'],
-            valence=analysis['valence']
-        )
-        
-        logger.info(f"✅ Playlist generated successfully")
-        return playlist
-        
-    except Exception as e:
-        logger.error(f"❌ Error generating playlist: {str(e)}")
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist generation failed: {e}"))
+    health_status = {
+        "server_status": "healthy",
+        "port": PORT,
+        "components": {
+            "mood_analyzer": mood_analyzer is not None,
+            "playlist_generator": playlist_generator is not None,
+            "config": config is not None,
+        },
+        "environment": {
+            "skip_ai_models": SKIP_AI_MODELS,
+            "auth_configured": bool(TOKEN),
+            "lastfm_configured": bool(LASTFM_API_KEY and LASTFM_SHARED_SECRET)
+        },
+        "endpoints": [
+            f"POST https://playlist-mcp.onrender.com/ (with proper headers)",
+            "Authorization: Bearer YOUR_TOKEN_HERE",
+            "Content-Type: application/json"
+        ]
+    }
+    
+    return json.dumps(health_status, indent=2)
 
-# --- Tool: generate_playlist_with_individual_links ---
 @mcp.tool(
-    name="generate_playlist_with_individual_links",
-    description="Generate a playlist with individual clickable links for each song on Spotify, Apple Music, and YouTube. Use this when users want direct links to each song rather than generic playlist search links."
+    name="generate_playlist",
+    description="Generate a mood-based playlist with individual song links"
 )
-async def generate_playlist_with_individual_links(
-    query: Annotated[str, Field(description="Natural language query with mood, emojis, duration, and language preferences")]
+async def generate_playlist(
+    query: Annotated[str, Field(description="Mood query like 'happy hindi songs for 30 minutes' or 'sad english playlist 😢'")]
 ) -> str:
-    """
-    Generate a playlist with individual links for each song on multiple platforms.
+    """Generate a playlist based on mood query"""
+    logger.info(f"🎵 Playlist requested: {query}")
     
-    Example: 'I want a 40 minutes playlist of hindi songs that makes me feel 😎'
-    """
     try:
-        logger.info(f"🔗 Processing query with individual links: {query}")
-        
-        # Ensure components are initialized
         await ensure_initialized()
+        
         if not mood_analyzer or not playlist_generator:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Server components not initialized properly"))
+            return json.dumps({
+                "error": "Server components not initialized",
+                "query": query,
+                "status": "failed"
+            }, indent=2)
         
-        # Parse and analyze the query
+        # Analyze the query
         analysis = await mood_analyzer.analyze_query(query)
-        logger.info(f"📊 Analysis complete: mood={analysis['mood']}, languages={analysis['languages']}")
+        logger.info(f"📊 Analysis: mood={analysis['mood']}, languages={analysis['languages']}")
         
-        # Generate base playlist data
+        # Generate playlist data
         playlist_data = await playlist_generator.generate_playlist_data(
             mood=analysis['mood'],
             genres=analysis['genres'],
@@ -246,258 +248,141 @@ async def generate_playlist_with_individual_links(
             valence=analysis['valence']
         )
         
-        logger.info(f"🎼 Playlist data generated: {len(playlist_data['tracks'])} tracks")
-        
-        # Check if we have tracks
         if not playlist_data.get('tracks'):
-            return f"❌ Sorry, couldn't find any {analysis['mood']} {' & '.join(analysis['languages'])} songs. Try a different mood or language combination."
+            return f"❌ Sorry, couldn't find any {analysis['mood']} {' & '.join(analysis['languages'])} songs. Try a different mood or language."
         
-        # Format with individual links - FORCE PLAIN TEXT OUTPUT
+        # Format response
         lang_str = " & ".join(lang.title() for lang in analysis['languages'])
-        
-        # Create a very simple, direct output that can't be misinterpreted
-        output = f"🎵 PLAYLIST: {analysis['mood'].title()} {lang_str} ({len(playlist_data['tracks'])} songs)\n\n"
+        output = f"🎵 {analysis['mood'].title()} {lang_str} Playlist ({len(playlist_data['tracks'])} songs)\n\n"
         
         for i, track in enumerate(playlist_data['tracks'], 1):
             artist = track['artist']
             song = track['track']
-            
-            # Create individual links
             links = create_individual_song_links(artist, song)
             
             output += f"{i}. {artist} - {song}\n"
-            output += f"🎧 Spotify: {links['spotify']}\n"
-            output += f"🍎 Apple Music: {links['apple_music']}\n"
-            output += f"📺 YouTube: {links['youtube']}\n\n"
+            output += f"   🎧 Spotify: {links['spotify']}\n"
+            output += f"   🍎 Apple Music: {links['apple_music']}\n"
+            output += f"   📺 YouTube: {links['youtube']}\n\n"
         
-        # Add analysis at the end
-        output += f"📊 ANALYSIS: Mood={analysis['mood']}, Energy={analysis['energy_level']:.1f}, Languages={', '.join(analysis['languages'])}"
+        output += f"📊 Analysis: Mood={analysis['mood']}, Energy={analysis['energy_level']:.1f}, Languages={', '.join(analysis['languages'])}"
         
-        logger.info(f"✅ Response generated: {len(output)} characters")
+        logger.info(f"✅ Playlist generated successfully")
         return output
         
     except Exception as e:
-        logger.error(f"❌ Error generating playlist with links: {str(e)}")
-        logger.error(f"Exception type: {type(e)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Playlist with links generation failed: {e}"))
-    
-# --- Tool: create_song_links ---
-@mcp.tool(
-    name="create_song_links",
-    description="Create individual streaming platform links for a specific artist and song. Use this to generate clickable links for a single song across Spotify, Apple Music, and YouTube."
-)
-async def create_song_links(
-    artist: Annotated[str, Field(description="Artist name")],
-    song: Annotated[str, Field(description="Song title")]
-) -> str:
-    """
-    Create individual streaming platform links for a specific song.
-    
-    Args:
-        artist: Name of the artist
-        song: Title of the song
-        
-    Returns:
-        Formatted string with clickable links for Spotify, Apple Music, and YouTube
-    """
-    try:
-        logger.info(f"🔗 Creating links for: {artist} - {song}")
-        links = create_individual_song_links(artist, song)
-        
-        output = f"🎵 **{artist} - {song}**\n\n"
-        output += f"🔗 **Listen on:**\n"
-        output += f"• [Spotify]({links['spotify']})\n"
-        output += f"• [Apple Music]({links['apple_music']})\n"
-        output += f"• [YouTube]({links['youtube']})\n"
-        
-        return output
-        
-    except Exception as e:
-        logger.error(f"❌ Error creating song links: {str(e)}")
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Song link creation failed: {e}"))
-
-# --- Tool: get_supported_options ---
-@mcp.tool(
-    name="get_supported_options",
-    description="Get list of supported genres and languages for playlist generation. Use this to discover available options including languages, genres, and mood categories."
-)
-async def get_supported_options() -> str:
-    """
-    Get list of supported genres and languages for playlist generation.
-    
-    Returns:
-        JSON string with available options including languages, genres, and mood categories
-    """
-    try:
-        await ensure_initialized()
-        
-        options = {
-            "supported_languages": config.supported_languages,
-            "mood_categories": list(config.emotion_genre_map.keys()),
-            "popular_genres": config.get_all_genres(),
-            "duration_formats": [
-                "30 minutes", "1 hour", "45 minutes", "5 songs", "10 tracks"
-            ],
-            "example_queries": [
-                "I want a 40 minutes playlist of hindi songs that makes me feel 😎",
-                "Generate a sad english playlist for 1 hour",
-                "Create an energetic punjabi playlist with 10 songs",
-                "I need romantic bollywood music for 30 minutes",
-                "Make me a happy tamil playlist 😊",
-                "Give me some calm meditation music for 20 minutes"
-            ],
-            "features": {
-                "emoji_support": "✅ Detects mood from emojis",
-                "multilingual": "✅ Supports 16+ languages",
-                "smart_duration": "✅ Parse time/song count automatically",
-                "individual_links": "✅ Direct links to each song",
-                "mood_analysis": "🤖 AI + Rule-based detection"
-            }
-        }
-        return json.dumps(options, indent=2, ensure_ascii=False)
-        
-    except Exception as e:
-        logger.error(f"❌ Error getting supported options: {str(e)}")
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Failed to get options: {e}"))
-
-# --- Tool: analyze_mood_only ---
-@mcp.tool(
-    name="analyze_mood_only",
-    description="Analyze mood and emotions from a query without generating playlist. Use this to understand mood, sentiment, and emotional content of text queries."
-)
-async def analyze_mood_only(
-    query: Annotated[str, Field(description="Text query to analyze for mood and emotions")]
-) -> str:
-    """
-    Analyze mood and emotions from a query without generating playlist.
-    """
-    try:
-        logger.info(f"📊 Analyzing mood for query: {query}")
-        
-        await ensure_initialized()
-        if not mood_analyzer:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message="Mood analyzer not initialized"))
-        
-        analysis = await mood_analyzer.analyze_query(query)
-        
-        # Return just the analysis without playlist generation
-        mood_result = {
-            "query": query,
-            "analysis": {
-                "mood": analysis['mood'],
-                "emotion": analysis['emotion'],
-                "sentiment": analysis['sentiment'],
-                "confidence": analysis['confidence'],
-                "energy_level": analysis['energy_level'],
-                "valence": analysis['valence'],
-                "detected_languages": analysis['languages'],
-                "duration_minutes": analysis['duration_minutes'],
-                "recommended_genres": analysis['genres'],
-                "emojis_found": analysis['emojis']
-            },
-            "analysis_method": "AI-enhanced" if (mood_analyzer and mood_analyzer.initialized) else "Rule-based"
-        }
-        
-        return json.dumps(mood_result, indent=2, ensure_ascii=False)
-        
-    except Exception as e:
-        logger.error(f"❌ Error analyzing mood: {str(e)}")
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"Mood analysis failed: {e}"))
-
-# --- Tool: server_health ---
-@mcp.tool(
-    name="server_health",
-    description="Check server health and initialization status. Use this to verify server components are working properly."
-)
-async def server_health() -> str:
-    """
-    Check server health and component status.
-    """
-    try:
-        health_status = {
-            "server_status": "healthy",
-            "components": {
-                "mood_analyzer": {
-                    "initialized": mood_analyzer is not None,
-                    "ai_models": mood_analyzer.initialized if mood_analyzer else False,
-                    "analysis_type": "AI-enhanced" if (mood_analyzer and mood_analyzer.initialized) else "Rule-based"
-                },
-                "playlist_generator": {
-                    "initialized": playlist_generator is not None,
-                    "lastfm_configured": bool(LASTFM_API_KEY and LASTFM_SHARED_SECRET)
-                }
-            },
-            "configuration": {
-                "skip_ai_models": SKIP_AI_MODELS,
-                "supported_languages": len(config.supported_languages),
-                "mood_categories": len(config.emotion_genre_map)
-            },
-            "environment": {
-                "auth_configured": bool(TOKEN),
-                "lastfm_configured": bool(LASTFM_API_KEY and LASTFM_SHARED_SECRET)
-            }
-        }
-        
-        return json.dumps(health_status, indent=2)
-        
-    except Exception as e:
-        logger.error(f"❌ Error checking server health: {str(e)}")
+        logger.error(f"❌ Playlist generation failed: {e}")
         return json.dumps({
-            "server_status": "error",
-            "error": str(e)
+            "error": str(e),
+            "query": query,
+            "status": "failed"
         }, indent=2)
 
-# --- Run MCP Server ---
-async def main():
-    """Main server startup function"""
-    print("🎵 Starting Mood Playlist MCP Server...")
-    print(f"🌐 Server will run on http://0.0.0.0:8086")
-    print(f"🤖 AI Models: {'Disabled' if SKIP_AI_MODELS else 'Enabled'}")
+@mcp.tool(
+    name="get_supported_options",
+    description="Get available languages, moods, and example queries"
+)
+async def get_supported_options() -> str:
+    """Get supported options and examples"""
+    logger.info("📋 Options requested")
     
-    # Check environment variables before starting
-    if not LASTFM_API_KEY or not LASTFM_SHARED_SECRET:
-        logger.error("❌ Missing Last.fm API credentials!")
-        logger.error("Please set LASTFM_API_KEY and LASTFM_SHARED_SECRET environment variables")
-        logger.error("You can get these from: https://www.last.fm/api")
-        sys.exit(1)
+    # Initialize config if not already done
+    if not config:
+        await ensure_initialized()
+    
+    # Use fallback values if config is still not available
+    supported_languages = getattr(config, 'supported_languages', [
+        "hindi", "english", "punjabi", "bengali", "tamil", "telugu", 
+        "marathi", "gujarati", "kannada", "malayalam", "spanish", 
+        "french", "german", "italian", "japanese", "korean"
+    ])
+    
+    emotion_genre_map = getattr(config, 'emotion_genre_map', {
+        "happy": ["pop", "dance", "bollywood", "reggae", "funk"],
+        "sad": ["ballad", "blues", "indie", "melancholic", "ghazal"],
+        "angry": ["rock", "metal", "punk", "rap", "aggressive"],
+        "excited": ["electronic", "dance", "pop", "party", "energetic"],
+        "calm": ["ambient", "classical", "instrumental", "chill", "meditation"],
+        "romantic": ["romantic", "love songs", "r&b", "slow", "ballad"],
+        "nostalgic": ["retro", "oldies", "vintage", "classic", "throwback"],
+        "energetic": ["workout", "high energy", "dance", "electronic", "upbeat"],
+        "neutral": ["pop", "alternative", "indie"]
+    })
+    
+    options = {
+        "supported_languages": supported_languages,
+        "mood_categories": list(emotion_genre_map.keys()),
+        "example_queries": [
+            "I want happy hindi songs for 30 minutes 😊",
+            "Generate sad english playlist for 1 hour",
+            "Create energetic punjabi songs",
+            "Romantic bollywood music 💕",
+            "Calm meditation music for 20 minutes"
+        ],
+        "usage_tips": [
+            "Include emojis to express mood better",
+            "Specify duration (minutes/hours) or number of songs",
+            "Mention language preferences (hindi, english, etc.)",
+            "Use descriptive mood words (happy, sad, energetic, romantic, calm)"
+        ]
+    }
+    
+    return json.dumps(options, indent=2, ensure_ascii=False)
 
-    logger.info("🎵 Mood Playlist MCP Server is ready!")
-    logger.info("📝 Available tools:")
-    logger.info(" - validate: Server validation (required)")
-    logger.info(" - generate_mood_playlist: Create playlists from mood queries")
-    logger.info(" - generate_playlist_with_individual_links: Create playlists with individual song links")
-    logger.info(" - create_song_links: Generate links for a specific song")
-    logger.info(" - get_supported_options: List available genres and languages")
-    logger.info(" - analyze_mood_only: Analyze mood without generating playlist")
-    logger.info(" - server_health: Check server component status")
+# --- Server startup ---
+async def main():
+    """Main server function"""
+    logger.info("🎵 Starting Mood Playlist MCP Server...")
+    logger.info(f"🌐 Server will run on 0.0.0.0:{PORT}")
+    logger.info(f"🚀 Public URL: https://playlist-mcp.onrender.com")
+    logger.info(f"🤖 AI Models: {'Disabled' if SKIP_AI_MODELS else 'Enabled'}")
+    
+    # Pre-initialize components
+    try:
+        await ensure_initialized()
+        logger.info("✅ Pre-initialization completed")
+    except Exception as e:
+        logger.warning(f"⚠️ Pre-initialization failed: {e}")
+    
+    logger.info("📝 Available tools: ping, validate, server_health, generate_playlist, get_supported_options")
+    logger.info("🔗 Test with: curl -X POST https://playlist-mcp.onrender.com/ -H 'Content-Type: application/json' -H 'Authorization: Bearer YOUR_TOKEN' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'")
     
     try:
-        await mcp.run_async("streamable-http", host="0.0.0.0", port=8086)
-    except KeyboardInterrupt:
-        logger.info("🛑 Server stopped by user")
+        # Use 0.0.0.0 to bind to all interfaces (required for Render)
+        await mcp.run_async("streamable-http", host="0.0.0.0", port=PORT)
     except Exception as e:
-        logger.error(f"❌ Server error: {str(e)}")
+        logger.error(f"❌ Server failed to start: {e}")
         raise
-    finally:
-        # Cleanup
-        logger.info("🧹 Cleaning up...")
-        if playlist_generator:
-            try:
-                await playlist_generator.close()
-                logger.info("✅ Playlist generator closed")
-            except Exception as e:
-                logger.warning(f"⚠️ Error closing playlist generator: {e}")
+
+# --- Cleanup handlers ---
+async def cleanup():
+    """Cleanup resources on shutdown"""
+    global playlist_generator
+    if playlist_generator:
+        try:
+            await playlist_generator.close()
+            logger.info("✅ Playlist generator cleaned up")
+        except Exception as e:
+            logger.warning(f"⚠️ Cleanup warning: {e}")
+
+def signal_handler():
+    """Handle shutdown signals"""
+    logger.info("🛑 Shutdown signal received")
+    asyncio.create_task(cleanup())
 
 if __name__ == "__main__":
     logger.info("🌟 Starting Mood Playlist MCP Server...")
     try:
+        # Register cleanup for proper shutdown
+        import signal
+        signal.signal(signal.SIGTERM, lambda s, f: signal_handler())
+        signal.signal(signal.SIGINT, lambda s, f: signal_handler())
+        
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("👋 Server shutdown complete.")
+        logger.info("👋 Server shutdown by user")
+        asyncio.run(cleanup())
     except Exception as e:
         logger.error(f"💥 Fatal error: {e}")
+        asyncio.run(cleanup())
         sys.exit(1)
-    else:
-        logger.info("👋 Server shutdown complete.")
