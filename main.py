@@ -24,6 +24,7 @@ cred: Optional[tk.Credentials] = None
 scope: Optional[tk.Scope] = None
 port = int(os.getenv("PORT", 10000))
 callback_port = port + 1  # Use next port for callback server
+callback_server = None
 
 
 class CallbackHandler(BaseHTTPRequestHandler):
@@ -42,6 +43,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             # Set response headers
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
             if error:
@@ -55,6 +57,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             self.wfile.write(html_content.encode('utf-8'))
             
         except Exception as e:
+            print(f"Callback handler error: {e}")
             self.send_response(500)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -374,28 +377,49 @@ def initialize_credentials():
     """Initialize Spotify credentials and scope."""
     global cred, scope
     
+    # Check if required environment variables are set
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    
+    if not client_id or not client_secret:
+        print("❌ Missing Spotify credentials!")
+        print("Required environment variables:")
+        print("- SPOTIFY_CLIENT_ID")
+        print("- SPOTIFY_CLIENT_SECRET")
+        return False
+    
     # Use environment variable or construct based on deployment
     redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
     if not redirect_uri:
         # For deployment
         if os.getenv("RENDER"):
-            # Running on Render - use the Render URL with callback port
-            redirect_uri = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME', 'playlist-mcp.onrender.com')}/callback"
+            # Running on Render - Render doesn't support custom ports in URLs
+            base_url = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'playlist-mcp.onrender.com')
+            redirect_uri = f"https://{base_url}/callback"
         else:
             # Local development - use callback server port
             redirect_uri = f"http://127.0.0.1:{callback_port}/callback"
     
-    cred = tk.Credentials(
-        client_id=os.getenv("SPOTIFY_CLIENT_ID", ''),
-        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET", ''),
-        redirect_uri=redirect_uri
-    )
-    
-    scope = (
-        tk.scope.playlist_modify_public + tk.scope.playlist_modify_private +
-        tk.scope.user_read_recently_played + tk.scope.user_top_read +
-        tk.scope.user_library_read + tk.scope.user_read_private
-    )
+    try:
+        cred = tk.Credentials(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri
+        )
+        
+        scope = (
+            tk.scope.playlist_modify_public + tk.scope.playlist_modify_private +
+            tk.scope.user_read_recently_played + tk.scope.user_top_read +
+            tk.scope.user_library_read + tk.scope.user_read_private
+        )
+        
+        print(f"✅ Credentials initialized successfully")
+        print(f"🔗 Redirect URI: {redirect_uri}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error initializing credentials: {e}")
+        return False
 
 
 async def health_check() -> list[TextContent]:
@@ -409,19 +433,30 @@ async def health_check() -> list[TextContent]:
 async def validate_config() -> str:
     """Validate server configuration."""
     my_number = os.getenv('MY_NUMBER', '') 
-    return my_number
+    client_id_status = "✅ Set" if os.getenv("SPOTIFY_CLIENT_ID") else "❌ Missing"
+    client_secret_status = "✅ Set" if os.getenv("SPOTIFY_CLIENT_SECRET") else "❌ Missing"
+    
+    return f"""Configuration Status:
+- MY_NUMBER: {my_number}
+- SPOTIFY_CLIENT_ID: {client_id_status}
+- SPOTIFY_CLIENT_SECRET: {client_secret_status}
+- Credentials initialized: {'✅ Yes' if cred else '❌ No'}
+"""
 
 
 async def authenticate_spotify() -> list[TextContent]:
     """Generate authentication URL for Spotify."""
     try:
+        # Ensure credentials are initialized
         if cred is None:
-            return [TextContent(
-                type="text",
-                text="❌ Credentials not initialized. Please restart the server."
-            )]
-            
-        if not cred.client_id or not cred.client_secret:
+            if not initialize_credentials():
+                return [TextContent(
+                    type="text",
+                    text="❌ Failed to initialize Spotify credentials. Please check your environment variables:\n- SPOTIFY_CLIENT_ID\n- SPOTIFY_CLIENT_SECRET"
+                )]
+        
+        # Check if credentials are properly initialized
+        if cred is None or not cred.client_id or not cred.client_secret:
             return [TextContent(
                 type="text",
                 text="❌ Spotify credentials not configured. Please set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables."
@@ -457,7 +492,7 @@ async def authenticate_spotify() -> list[TextContent]:
     except Exception as e:
         return [TextContent(
             type="text", 
-            text=f"❌ Error generating authentication URL: {str(e)}"
+            text=f"❌ Error generating authentication URL: {str(e)}\n💡 Try running 'debug_status' to check configuration"
         )]
 
 
@@ -476,10 +511,20 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
         code = code.strip()
         
         if cred is None:
+            if not initialize_credentials():
+                return [TextContent(
+                    type="text",
+                    text="❌ Credentials not initialized. Please check your environment variables."
+                )]
+        
+        # Additional check after initialization attempt
+        if cred is None:
             return [TextContent(
                 type="text",
-                text="❌ Credentials not initialized. Please restart the server."
+                text="❌ Failed to initialize credentials. Please check your Spotify environment variables."
             )]
+        
+        print(f"🔄 Requesting token with code: {code[:10]}...")
         
         # Request token
         token = cred.request_user_token(code)
@@ -488,10 +533,11 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
             playlist_generator = PlaylistGenerator(client)
             
             # Test connection
-            user = client.current_user()
-            return [TextContent(
-                type="text", 
-                text=f"""✅ **AUTHENTICATION SUCCESSFUL!**
+            try:
+                user = client.current_user()
+                return [TextContent(
+                    type="text", 
+                    text=f"""✅ **AUTHENTICATION SUCCESSFUL!**
 
 👤 **Logged in as:** {user.display_name or user.id}
 🎵 **Spotify Premium:** {'Yes' if user.product == 'premium' else 'No'}
@@ -501,26 +547,48 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
 
 💡 **Try something like:**
 • "Generate a happy workout playlist"
-• "Create a chill study playlist for 90 minutes"
+• "Create a chill study playlist for 90 minutes"  
 • "Make a sad rainy day playlist"
 • "Generate an energetic party playlist"
 """
-            )]
+                )]
+            except Exception as user_error:
+                print(f"❌ User info error: {user_error}")
+                return [TextContent(
+                    type="text", 
+                    text=f"✅ **Authentication successful** but couldn't fetch user info.\n"
+                         f"You can still generate playlists!\n"
+                         f"Debug info: {str(user_error)}"
+                )]
         else:
             return [TextContent(
                 type="text", 
                 text="❌ Authentication failed: Could not retrieve token. Please try again with a fresh authorization code."
             )]
     except tk.BadRequest as e:
+        error_details = str(e)
+        print(f"❌ Bad request error: {error_details}")
         return [TextContent(
             type="text", 
             text=f"❌ Authentication failed: Invalid authorization code.\n"
-                 f"💡 The code might be expired or already used. Please get a fresh code from the authentication URL."
+                 f"💡 The code might be expired or already used. Please get a fresh code from the authentication URL.\n"
+                 f"Error details: {error_details}"
         )]
-    except Exception as e:
+    except tk.HTTPError as e:
+        error_details = str(e)
+        print(f"❌ HTTP error: {error_details}")
         return [TextContent(
             type="text", 
-            text=f"❌ Authentication failed: {str(e)}\n"
+            text=f"❌ Spotify API error during authentication.\n"
+                 f"💡 Please try again. If the problem persists, check your Spotify app settings.\n"
+                 f"Error details: {error_details}"
+        )]
+    except Exception as e:
+        error_details = str(e)
+        print(f"❌ Unexpected error: {error_details}")
+        return [TextContent(
+            type="text", 
+            text=f"❌ Authentication failed: {error_details}\n"
                  f"💡 Make sure to use the complete authorization code from the callback page."
         )]
 
@@ -585,18 +653,22 @@ async def generate_spotify_playlist(
             )]
         
         if not client or not playlist_generator:
+            # Try to provide authentication instructions
+            auth_instructions = await authenticate_spotify()
             return [TextContent(
                 type="text", 
-                text="❌ Please authenticate with Spotify first using the 'authenticate' and 'handle_callback' tools."
+                text="❌ Please authenticate with Spotify first.\n\n" + auth_instructions[0].text
             )]
 
         # Refresh token if needed
         if token and token.is_expiring and token.refresh_token and cred is not None:
             try:
+                print("🔄 Refreshing token...")
                 token = cred.refresh_user_token(token.refresh_token)
                 client = tk.Spotify(token)
                 playlist_generator.client = client
             except Exception as refresh_error:
+                print(f"❌ Token refresh error: {refresh_error}")
                 return [TextContent(
                     type="text",
                     text=f"❌ Token refresh failed: {str(refresh_error)}. Please re-authenticate using the 'authenticate' tool."
@@ -607,6 +679,7 @@ async def generate_spotify_playlist(
 
         # Create playlist with better error handling
         try:
+            print(f"🎵 Creating playlist: {playlist_name}")
             playlist_url = await playlist_generator.create_playlist(
                 analysis_result=analysis_result,
                 duration_minutes=duration_minutes,
@@ -633,22 +706,28 @@ async def generate_spotify_playlist(
             )]
             
         except tk.HTTPError as http_error:
+            error_details = str(http_error)
+            print(f"❌ HTTP error creating playlist: {error_details}")
             return [TextContent(
                 type="text",
-                text=f"❌ Spotify API error: {http_error}\n"
+                text=f"❌ Spotify API error: {error_details}\n"
                      f"💡 This might be due to rate limiting or insufficient permissions. Please try again in a moment."
             )]
         except Exception as playlist_error:
+            error_details = str(playlist_error)
+            print(f"❌ Playlist creation error: {error_details}")
             return [TextContent(
                 type="text",
-                text=f"❌ Error creating playlist: {str(playlist_error)}\n"
+                text=f"❌ Error creating playlist: {error_details}\n"
                      f"💡 Please check your Spotify authentication and try again."
             )]
             
     except Exception as e:
+        error_details = str(e)
+        print(f"❌ Generate playlist error: {error_details}")
         return [TextContent(
             type="text", 
-            text=f"❌ Unexpected error: {str(e)}\n"
+            text=f"❌ Unexpected error: {error_details}\n"
                  f"💡 If this is an authentication error, try re-authenticating with Spotify."
         )]
 
@@ -692,6 +771,11 @@ async def debug_server_status() -> list[TextContent]:
     """Show detailed server status and configuration for debugging."""
     global client, token, playlist_generator, cred, scope
     
+    # Check environment variables
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "Auto-detected")
+    
     status_info = f"""
 🔍 **Server Debug Status**
 
@@ -703,9 +787,9 @@ async def debug_server_status() -> list[TextContent]:
 - Running on Render: {'✅ Yes' if os.getenv('RENDER') else '❌ No'}
 
 **Environment Variables:**
-- SPOTIFY_CLIENT_ID: {'✅ Set' if os.getenv('SPOTIFY_CLIENT_ID') else '❌ Not Set'}
-- SPOTIFY_CLIENT_SECRET: {'✅ Set' if os.getenv('SPOTIFY_CLIENT_SECRET') else '❌ Not Set'} 
-- SPOTIFY_REDIRECT_URI: {os.getenv('SPOTIFY_REDIRECT_URI', 'Auto-detected')}
+- SPOTIFY_CLIENT_ID: {'✅ Set (' + str(len(client_id)) + ' chars)' if client_id else '❌ Not Set'}
+- SPOTIFY_CLIENT_SECRET: {'✅ Set (' + str(len(client_secret)) + ' chars)' if client_secret else '❌ Not Set'} 
+- SPOTIFY_REDIRECT_URI: {redirect_uri}
 - MY_NUMBER: {os.getenv('MY_NUMBER', 'Not set')}
 
 **Spotify Connection Status:**
@@ -721,6 +805,10 @@ async def debug_server_status() -> list[TextContent]:
 {f'- Expires: {token.expires_at}' if token else '- No token available'}
 {f'- Is Expiring: {token.is_expiring}' if token else ''}
 {f'- Has Refresh Token: {"Yes" if token and token.refresh_token else "No"}' if token else ''}
+
+**Callback Server Status:**
+- Server Running: {'✅ Yes' if callback_server else '❌ No'}
+- Port Available: {callback_port}
 """
     
     return [TextContent(type="text", text=status_info.strip())]
@@ -777,14 +865,20 @@ async def run_server() -> None:
     """Run the MCP server and callback server."""
     try:
         # Initialize credentials first
-        initialize_credentials()
+        print("🔧 Initializing credentials...")
+        if not initialize_credentials():
+            print("❌ Failed to initialize credentials. Server cannot start properly.")
+            print("Please check your environment variables:")
+            print("- SPOTIFY_CLIENT_ID")
+            print("- SPOTIFY_CLIENT_SECRET")
         
         # Start callback server in background thread  
+        print("🌐 Starting callback server...")
         callback_thread = threading.Thread(target=start_callback_server, daemon=True)
         callback_thread.start()
         
         # Small delay to let callback server start
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
         
         # Setup MCP server
         server = setup_mcp_server()
@@ -800,11 +894,14 @@ async def run_server() -> None:
         # Log registered components
         print(f"🛠️ Registered MCP tools: health, validate, authenticate, handle_callback, generate_playlist, debug_status, list_tools")
         print(f"🌐 Callback server running on separate thread")
+        print(f"✅ Server ready for connections!")
         
         await server.run_async("streamable-http", host="0.0.0.0", port=port)
         
     except Exception as e:
         print(f"❌ Failed to start server: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
@@ -814,6 +911,8 @@ async def main() -> None:
         await run_server()
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")
+        if callback_server:
+            callback_server.shutdown()
     except Exception as e:
         print(f"❌ Server error: {e}")
         raise
