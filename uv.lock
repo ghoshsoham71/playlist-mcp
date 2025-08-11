@@ -909,6 +909,7 @@ dependencies = [
     { name = "requests" },
     { name = "scikit-learn" },
     { name = "spotify" },
+    { name = "tekore" },
     { name = "torch" },
     { name = "transformers" },
 ]
@@ -931,6 +932,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.4" },
     { name = "scikit-learn", specifier = ">=1.7.1" },
     { name = "spotify", specifier = ">=0.10.2" },
+    { name = "tekore", specifier = ">=6.0.0" },
     { name = "torch", specifier = ">=2.8.0" },
     { name = "transformers", specifier = ">=4.55.0" },
 ]
@@ -2158,6 +2160,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "tekore"
+version = "6.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/23/a92c910fdf99b4033d5df54975934c628ee8322e98ecf546c8d0e37da087/tekore-6.0.0.tar.gz", hash = "sha256:df87e264fcf18c2d72ae014f958dc65c6c80775d05a946a464d76bf8c7bf0476", size = 271904, upload-time = "2024-12-11T14:10:02.655Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/82/f88580172198520735fa53a29d4ddc35b9e00ff3a6acc166095d65048bcf/tekore-6.0.0-py3-none-any.whl", hash = "sha256:19e6f4861f82f1e99717845eb9effc34983d6379b4c16f4498a82412adc7c861", size = 75862, upload-time = "2024-12-11T14:09:59.831Z" },
 ]
 
 [[package]]

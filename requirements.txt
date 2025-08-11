@@ -1,0 +1,10 @@
+spotipy
+transformers
+torch
+emoji
+langdetect
+mcp
+asyncio
+requests
+numpy
+scikit-learn

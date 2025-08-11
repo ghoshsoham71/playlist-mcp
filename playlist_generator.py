@@ -1,15 +1,13 @@
 import random
-from typing import Dict, List, Any, Tuple
-import spotipy
-from spotify_handler import SpotifyAuthHandler
+from typing import Dict, List, Any, Tuple, Optional, Union
+import tekore as tk
+
 
 class PlaylistGenerator:
     """Generates Spotify playlists based on sentiment analysis and user preferences."""
     
-    def __init__(self, spotify_client: spotipy.Spotify):
+    def __init__(self, spotify_client: tk.Spotify):
         self.spotify = spotify_client
-        self.handler = SpotifyAuthHandler()
-        self.handler.client = spotify_client
         
         # Sentiment to audio features mapping
         self.sentiment_mapping = {
@@ -34,8 +32,8 @@ class PlaylistGenerator:
             str: Spotify playlist URL
         """
         # Get user profile
-        user_profile = self.handler.get_user_profile()
-        user_id = user_profile['id']
+        user_profile = self.spotify.current_user()
+        user_id = user_profile.id
         
         # Calculate target number of tracks (assuming ~3.5 minutes per track)
         target_tracks = max(10, int(duration_minutes / 3.5))
@@ -60,34 +58,55 @@ class PlaylistGenerator:
         
         # Create playlist
         playlist_description = f"AI-generated playlist based on: {analysis_result['raw_prompt'][:100]}..."
-        playlist = self.handler.create_playlist(
+        playlist = self.spotify.playlist_create(
             user_id=user_id,
             name=playlist_name,
             description=playlist_description,
             public=False
         )
         
-        # Add tracks to playlist
-        track_uris = [track['uri'] for track in all_tracks]
-        self.handler.add_tracks_to_playlist(playlist['id'], track_uris)
+        # Add tracks to playlist in batches (Spotify API limit is 100 tracks per request)
+        track_uris = [track.uri for track in all_tracks]
+        batch_size = 100
         
-        return playlist['external_urls']['spotify']
+        for i in range(0, len(track_uris), batch_size):
+            batch = track_uris[i:i + batch_size]
+            self.spotify.playlist_add(playlist.id, batch)
+        
+        return playlist.external_urls['spotify']
     
-    async def _get_user_tracks(self, count: int, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _get_user_tracks(self, count: int, analysis_result: Dict[str, Any]) -> List[Union[tk.model.Track, tk.model.FullTrack]]:
         """Get tracks from user's listening history that match the sentiment."""
         try:
-            # Get user's top tracks and recent tracks
-            top_tracks = self.handler.get_user_top_tracks(limit=50)['items']
-            recent_tracks = [item['track'] for item in self.handler.get_user_recently_played(limit=50)['items']]
+            all_user_tracks = []
             
-            # Combine and deduplicate
-            all_user_tracks = {track['id']: track for track in top_tracks + recent_tracks}.values()
+            # Get user's top tracks
+            try:
+                top_tracks = self.spotify.current_user_top_tracks(limit=50, time_range='medium_term')
+                all_user_tracks.extend(top_tracks.items)
+            except Exception as e:
+                print(f"Error getting top tracks: {e}")
+            
+            # Get user's recently played tracks
+            try:
+                recent_tracks = self.spotify.playback_recently_played(limit=50)
+                all_user_tracks.extend([item.track for item in recent_tracks.items])
+            except Exception as e:
+                print(f"Error getting recent tracks: {e}")
+            
+            # Remove duplicates by track ID
+            unique_tracks = {}
+            for track in all_user_tracks:
+                if track.id not in unique_tracks:
+                    unique_tracks[track.id] = track
+            
+            all_user_tracks = list(unique_tracks.values())
             
             # Filter tracks based on sentiment if we have enough data
             if len(all_user_tracks) > count * 2:
-                filtered_tracks = await self._filter_tracks_by_sentiment(list(all_user_tracks), analysis_result)
+                filtered_tracks = await self._filter_tracks_by_sentiment(all_user_tracks, analysis_result)
             else:
-                filtered_tracks = list(all_user_tracks)
+                filtered_tracks = all_user_tracks
             
             # Return random selection
             return random.sample(filtered_tracks, min(count, len(filtered_tracks)))
@@ -96,7 +115,7 @@ class PlaylistGenerator:
             print(f"Error getting user tracks: {e}")
             return []
     
-    async def _get_recommended_tracks(self, count: int, analysis_result: Dict[str, Any], user_tracks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _get_recommended_tracks(self, count: int, analysis_result: Dict[str, Any], user_tracks: List[Union[tk.model.Track, tk.model.FullTrack]]) -> List[tk.model.FullTrack]:
         """Get recommended tracks based on sentiment analysis."""
         # Determine primary sentiment
         sentiment_scores = analysis_result['sentiment']
@@ -106,11 +125,11 @@ class PlaylistGenerator:
         target_features = self.sentiment_mapping.get(primary_sentiment, self.sentiment_mapping['neutral'])
         
         # Use user tracks as seeds if available
-        seed_tracks = [track['id'] for track in user_tracks[:5]] if user_tracks else []
+        seed_tracks = [track.id for track in user_tracks[:5]] if user_tracks else None
         
         # Get recommendations
         try:
-            recommendations = self.handler.get_recommendations(
+            recommendations = self.spotify.recommendations(
                 seed_tracks=seed_tracks,
                 limit=min(100, count * 2),  # Get more than needed for filtering
                 target_valence=target_features['valence'],
@@ -119,10 +138,10 @@ class PlaylistGenerator:
             )
             
             # Filter out duplicates from user tracks
-            user_track_ids = {track['id'] for track in user_tracks}
+            user_track_ids = {track.id for track in user_tracks}
             filtered_recs = [
-                track for track in recommendations['tracks'] 
-                if track['id'] not in user_track_ids
+                track for track in recommendations.tracks 
+                if track.id not in user_track_ids
             ]
             
             return filtered_recs[:count]
@@ -132,13 +151,20 @@ class PlaylistGenerator:
             # Fallback: search for tracks based on sentiment keywords
             return await self._fallback_search(count, primary_sentiment)
     
-    async def _filter_tracks_by_sentiment(self, tracks: List[Dict[str, Any]], analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _filter_tracks_by_sentiment(self, tracks: List[Union[tk.model.Track, tk.model.FullTrack]], analysis_result: Dict[str, Any]) -> List[Union[tk.model.Track, tk.model.FullTrack]]:
         """Filter tracks based on their audio features matching the sentiment."""
         # Get audio features for all tracks
-        track_ids = [track['id'] for track in tracks]
+        track_ids = [track.id for track in tracks]
         
         try:
-            audio_features = self.handler.get_track_audio_features(track_ids)
+            # Split into batches of 100 (API limit)
+            batch_size = 100
+            all_audio_features = []
+            
+            for i in range(0, len(track_ids), batch_size):
+                batch_ids = track_ids[i:i + batch_size]
+                audio_features_batch = self.spotify.tracks_audio_features(batch_ids)
+                all_audio_features.extend(audio_features_batch)
             
             # Determine target sentiment
             sentiment_scores = analysis_result['sentiment']
@@ -147,8 +173,8 @@ class PlaylistGenerator:
             
             # Score tracks based on how well they match target sentiment
             scored_tracks = []
-            for track, features in zip(tracks, audio_features):
-                if features and isinstance(features, dict):
+            for track, features in zip(tracks, all_audio_features):
+                if features:  # features can be None for some tracks
                     score = self._calculate_sentiment_match_score(features, target_features)
                     scored_tracks.append((track, score))
             
@@ -160,18 +186,22 @@ class PlaylistGenerator:
             print(f"Error filtering tracks by sentiment: {e}")
             return tracks
     
-    def _calculate_sentiment_match_score(self, track_features: Dict[str, Any], target_features: Dict[str, float]) -> float:
+    def _calculate_sentiment_match_score(self, track_features: tk.model.AudioFeatures, target_features: Dict[str, float]) -> float:
         """Calculate how well a track's features match target sentiment features."""
         score = 0.0
-        for feature, target_value in target_features.items():
-            if feature in track_features and track_features[feature] is not None:
-                # Calculate proximity to target (closer = higher score)
-                diff = abs(track_features[feature] - target_value)
-                score += 1.0 - diff
+        feature_count = 0
         
-        return score / len(target_features)
+        for feature, target_value in target_features.items():
+            track_value = getattr(track_features, feature, None)
+            if track_value is not None:
+                # Calculate proximity to target (closer = higher score)
+                diff = abs(track_value - target_value)
+                score += 1.0 - diff
+                feature_count += 1
+        
+        return score / feature_count if feature_count > 0 else 0.0
     
-    async def _fallback_search(self, count: int, sentiment: str) -> List[Dict[str, Any]]:
+    async def _fallback_search(self, count: int, sentiment: str) -> List[tk.model.FullTrack]:
         """Fallback method to search for tracks when recommendations fail."""
         sentiment_keywords = {
             "joy": ["happy", "upbeat", "celebration", "positive"],
@@ -187,11 +217,21 @@ class PlaylistGenerator:
         
         for keyword in keywords:
             try:
-                search_results = self.handler.search_tracks(keyword, limit=25)
-                all_tracks.extend(search_results['tracks']['items'])
+                search_results = self.spotify.search(
+                    query=keyword, 
+                    types=('track',), 
+                    limit=25
+                )
+                if search_results[0]:  # search_results is a tuple (tracks, None, None, None)
+                    all_tracks.extend(search_results[0].items)
             except Exception as e:
                 print(f"Search error for keyword {keyword}: {e}")
         
         # Remove duplicates and return random selection
-        unique_tracks = {track['id']: track for track in all_tracks}.values()
-        return random.sample(list(unique_tracks), min(count, len(unique_tracks)))
+        unique_tracks = {}
+        for track in all_tracks:
+            if track.id not in unique_tracks:
+                unique_tracks[track.id] = track
+        
+        unique_tracks_list = list(unique_tracks.values())
+        return random.sample(unique_tracks_list, min(count, len(unique_tracks_list)))
