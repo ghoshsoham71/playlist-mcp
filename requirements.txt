@@ -1,6 +1,4 @@
 spotipy
-transformers
-torch
 emoji
 langdetect
 mcp

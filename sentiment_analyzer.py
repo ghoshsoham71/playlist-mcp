@@ -223,23 +223,58 @@ class SentimentAnalyzer:
         """Analyze punctuation for emotional intensity."""
         scores = {"joy": 0.0, "sadness": 0.0, "anger": 0.0, "fear": 0.0, "surprise": 0.0, "neutral": 0.0}
         
-        # Map HuggingFace labels to emotions
-        label_mapping = {
-            "POSITIVE": "joy", "NEGATIVE": "sadness", "NEUTRAL": "neutral",
-            "LABEL_0": "sadness", "LABEL_1": "joy", "LABEL_2": "neutral"
-        }
+        # Count exclamation marks (excitement/intensity)
+        exclamation_count = text.count('!')
+        if exclamation_count > 0:
+            scores["joy"] += exclamation_count * 0.2
+            scores["anger"] += exclamation_count * 0.1
         
-        total_score = 0.0
-        for result in results:
-            label = result.get('label', '').upper()
-            score = result.get('score', 0.0)
-            
-            mapped_emotion = label_mapping.get(label, "neutral")
-            emotion_scores[mapped_emotion] += score
-            total_score += score
+        # Count question marks (curiosity/surprise)
+        question_count = text.count('?')
+        if question_count > 0:
+            scores["surprise"] += question_count * 0.1
         
-        # Normalize scores
-        if total_score > 0:
-            return {emotion: score/total_score for emotion, score in emotion_scores.items()}
-        else:
-            return {"neutral": 1.0}
+        # ALL CAPS detection (intensity/emotion)
+        caps_words = re.findall(r'\b[A-Z]{3,}\b', text)
+        if caps_words:
+            caps_intensity = len(caps_words) * 0.3
+            # Distribute caps intensity based on context
+            if any(word.lower() in self.positive_keywords for word in caps_words):
+                scores["joy"] += caps_intensity
+            elif any(word.lower() in self.anger_keywords for word in caps_words):
+                scores["anger"] += caps_intensity
+            else:
+                scores["surprise"] += caps_intensity * 0.5
+                scores["joy"] += caps_intensity * 0.3
+        
+        # Repeated letters (emphasis)
+        repeated_letters = re.findall(r'(.)\1{2,}', text.lower())
+        if repeated_letters:
+            emphasis_score = len(repeated_letters) * 0.1
+            scores["joy"] += emphasis_score * 0.6
+            scores["surprise"] += emphasis_score * 0.4
+        
+        return scores
+    
+    def get_energy_level(self, text: str) -> float:
+        """Determine energy level from text (0.0 = low energy, 1.0 = high energy)."""
+        text_lower = text.lower()
+        
+        high_energy_score = sum(1 for word in self.high_energy_keywords if word in text_lower)
+        low_energy_score = sum(1 for word in self.low_energy_keywords if word in text_lower)
+        
+        # Punctuation influence
+        exclamation_count = text.count('!')
+        caps_words = len(re.findall(r'\b[A-Z]{3,}\b', text))
+        
+        high_energy_score += exclamation_count * 0.5 + caps_words * 0.3
+        
+        if high_energy_score + low_energy_score == 0:
+            return 0.5  # Default medium energy
+        
+        energy_ratio = high_energy_score / (high_energy_score + low_energy_score)
+        return min(1.0, max(0.0, energy_ratio))
+    
+    def get_dominant_emotion(self, sentiment_scores: Dict[str, float]) -> str:
+        """Get the dominant emotion from sentiment scores."""
+        return max(sentiment_scores.items(), key=lambda x: x[1])[0]
