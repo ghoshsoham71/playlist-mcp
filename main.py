@@ -28,6 +28,13 @@ class SpotifyMCPServer:
         self._setup_tools()
     
     def _setup_tools(self):
+        """Setup MCP tools - these functions will be called externally by MCP clients."""
+        
+        @self.server.tool("validate")
+        async def validate() -> str:
+            """Validate server configuration by returning environment variable."""
+            return os.getenv('MY_NUMBER', '')
+    
         @self.server.tool("generate_playlist")
         async def generate_playlist(
             prompt: str,
