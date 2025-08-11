@@ -1,9 +1,0 @@
-spotipy
-emoji
-langdetect
-mcp
-asyncio
-requests
-numpy
-scikit-learn
-tekore
