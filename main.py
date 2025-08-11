@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 from typing import Dict, Any, Optional
-from mcp import McpServer
+from fastmcp import FastMCP
 from mcp.types import Tool, TextContent
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -10,9 +10,9 @@ from playlist_generator import PlaylistGenerator
 from sentiment_analyzer import SentimentAnalyzer
 from utils import parse_duration, detect_language
 
-class SpotifyMCPServer:
+class SpotifyFastMCP:
     def __init__(self):
-        self.server = McpServer("spotify-playlist-generator")
+        self.server = FastMCP("spotify-playlist-generator")
         self.spotify_client: Optional[spotipy.Spotify] = None
         self.playlist_generator: Optional[PlaylistGenerator] = None
         self.sentiment_analyzer = SentimentAnalyzer()
@@ -121,10 +121,10 @@ class SpotifyMCPServer:
     
     async def run(self):
         """Run the MCP server."""
-        await self.server.run()
+        await self.server.run_async("streamable-http", host="0.0.0.0", port=8086)
 
 async def main():
-    server = SpotifyMCPServer()
+    server = SpotifyFastMCP()
     await server.run()
 
 if __name__ == "__main__":
