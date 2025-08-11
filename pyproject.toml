@@ -11,6 +11,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "emoji>=2.14.1",
     "fastmcp>=2.11.2",
+    "httpx>=0.28.1",
     "langdetect>=1.0.9",
     "markdownify>=1.1.0",
     "mcp>=1.12.4",
@@ -21,5 +22,7 @@ dependencies = [
     "requests>=2.32.4",
     "scikit-learn>=1.7.1",
     "spotify>=0.10.2",
-    "tekore>=6.0.0"
+    "starlette>=0.47.2",
+    "tekore>=6.0.0",
+    "uvicorn>=0.35.0",
 ]
