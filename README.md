@@ -1,174 +1,186 @@
-# Mood Playlist MCP Server
+# Spotify MCP Playlist Generator
 
-A Model Context Protocol (MCP) server that generates mood-based music playlists using AI sentiment analysis and the Last.fm API. The server analyzes user queries with emojis, natural language, and preferences to create personalized playlists.
+A Model Context Protocol (MCP) server that generates Spotify playlists based on sentiment analysis of user prompts. Designed to work with WhatsApp bots and other messaging platforms.
 
 ## Features
 
-- 🎭 **AI-Powered Mood Analysis**: Uses Hugging Face transformers for sentiment and emotion detection
-- 🌍 **Multi-language Support**: Supports Hindi, English, Punjabi, Bengali, Tamil, and more
-- 😀 **Emoji Understanding**: Analyzes emojis to enhance mood detection
-- 🎵 **Smart Playlist Generation**: Creates playlists using Last.fm's extensive music database
-- 🔗 **Platform Integration**: Provides links for Spotify, Apple Music, YouTube, and Last.fm
-- ⚡ **FastAPI Integration**: Full REST API with Swagger documentation
-
-## Prerequisites
-
-1. **Python 3.8+**
-2. **Last.fm API Account**: Get your API key and secret from [Last.fm API](https://www.last.fm/api/account/create)
+- 🎵 **Smart Playlist Generation**: Creates playlists using 30% user history + 70% Spotify recommendations
+- 🧠 **Sentiment Analysis**: Uses HuggingFace models to analyze text and emoji sentiment
+- 🌍 **Multi-language Support**: Detects language and adapts recommendations
+- ⏱️ **Duration Control**: Parses duration from natural language ("45 minutes", "2 hours")
+- 🔐 **OAuth Integration**: Secure Spotify authentication
+- 📱 **WhatsApp Ready**: Designed for messaging bot integration
 
 ## Installation
 
-1. **Clone or download the code files**
+1. **Clone the repository**
+```bash
+git clone <your-repo>
+cd spotify-mcp
+```
 
-2. **Install dependencies**:
+2. **Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Set up environment variables**:
-```bash
-# Copy the example environment file
-cp .env.example .env
+3. **Set up Spotify App**
+   - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+   - Create a new app
+   - Note your Client ID and Client Secret
+   - Set redirect URI to `http://localhost:8080/callback`
 
-# Edit .env with your Last.fm credentials
-LASTFM_API_KEY=your_actual_api_key
-LASTFM_SHARED_SECRET=your_actual_shared_secret
+4. **Configure environment variables**
+```bash
+export SPOTIFY_CLIENT_ID="your_client_id"
+export SPOTIFY_CLIENT_SECRET="your_client_secret"
+export SPOTIFY_REDIRECT_URI="http://localhost:8080/callback"
 ```
 
-## Running the Server
+## Usage
 
-### Option 1: As FastAPI Application (Recommended for testing)
+### Basic MCP Server
 
-```bash
-# Run with uvicorn
-uvicorn main:mcp.app --host 127.0.0.1 --port 8086 --reload
+```python
+from main import SpotifyMCPServer
+import asyncio
 
-# Or run directly
-python main.py
+async def main():
+    server = SpotifyMCPServer()
+    await server.run()
+
+asyncio.run(main())
 ```
 
-Then access:
-- **Swagger UI**: http://127.0.0.1:8086/docs
-- **OpenAPI JSON**: http://127.0.0.1:8086/openapi.json
+### Tool Usage
 
-### Option 2: As MCP Server
+The server exposes one main tool: `generate_playlist`
 
-The server is compatible with MCP clients. Configure your MCP client to connect to:
-- **Host**: 127.0.0.1
-- **Port**: 8086
+```python
+# Example tool call
+result = await mcp_client.call_tool(
+    "generate_playlist",
+    {
+        "prompt": "Happy workout music with some rock 🎸💪",
+        "duration_minutes": 45,
+        "playlist_name": "Gym Motivation"
+    }
+)
+```
 
-## API Endpoints
+### WhatsApp Integration Example
 
-### 1. Generate Mood Playlist
-**POST** `/tools/generate_mood_playlist`
+```
+User: "Create me a chill playlist for studying 📚"
+Bot: "Let me analyze your request..."
+Bot: "✅ Created playlist: Study Focus
+      🎵 URL: https://open.spotify.com/playlist/xyz
+      📊 30% from your history, 70% new recommendations"
+```
 
-Generate a playlist based on mood query.
+## How It Works
 
-**Request Body**:
-```json
-{
-  "query": "I want a 40 minutes playlist of hindi songs that makes me feel 😎"
+### 1. Sentiment Analysis
+- Analyzes text using lightweight HuggingFace models
+- Processes emojis separately for emotional context
+- Maps emotions to Spotify audio features (valence, energy, danceability)
+
+### 2. Playlist Generation
+- **30% User History**: Pulls from user's top tracks and recent listening
+- **70% Recommendations**: Uses Spotify's recommendation API with sentiment-based parameters
+- Filters and combines tracks to create one consolidated playlist
+
+### 3. Audio Features Mapping
+```python
+sentiment_mapping = {
+    "joy": {"valence": 0.8, "energy": 0.7, "danceability": 0.8},
+    "sadness": {"valence": 0.2, "energy": 0.3, "danceability": 0.4},
+    "anger": {"valence": 0.3, "energy": 0.9, "danceability": 0.6},
+    # ... more mappings
 }
 ```
 
-**Response**: Complete playlist with streaming platform links and track list.
+## API Reference
 
-### 2. Get Supported Options
-**POST** `/tools/get_supported_options`
+### generate_playlist
 
-Get available languages, genres, and mood categories.
+**Parameters:**
+- `prompt` (str): User's description of desired music
+- `duration_minutes` (int, default=60): Target playlist length
+- `playlist_name` (str, default="AI Generated Playlist"): Playlist name
 
-### 3. Analyze Mood Only
-**POST** `/tools/analyze_mood_only`
+**Returns:**
+- Spotify playlist URL
+- Analysis breakdown
+- Success/error status
 
-Analyze mood and emotions without generating a playlist.
+## File Structure
 
-**Request Body**:
-```json
-{
-  "query": "I'm feeling really happy today 😊"
-}
+```
+spotify-mcp/
+├── main.py                 # Main MCP server
+├── spotify_handler.py      # Spotify OAuth & API wrapper
+├── playlist_generator.py   # Core playlist creation logic
+├── sentiment_analyzer.py   # HuggingFace sentiment analysis
+├── utils.py               # Helper functions
+├── example_usage.py       # Usage examples
+├── requirements.txt       # Dependencies
+└── README.md             # This file
 ```
 
-## Example Queries
+## Authentication Flow
 
-- `"I want a 40 minutes playlist of hindi songs that makes me feel 😎"`
-- `"Generate a sad english playlist for 1 hour"`
-- `"Create an energetic punjabi playlist with 10 songs"`
-- `"I need romantic bollywood music for 30 minutes"`
-- `"Make me a chill playlist 😌 for studying"`
+1. User requests playlist creation
+2. If not authenticated, bot provides Spotify OAuth URL
+3. User authorizes and is redirected with code
+4. Server exchanges code for access token
+5. Token is cached for future requests
+6. User can now create playlists
 
-## Supported Languages
+## Example Prompts
 
-- Hindi (हिंदी)
-- English
-- Punjabi (ਪੰਜਾਬੀ)
-- Bengali (বাংলা)
-- Tamil (தமிழ்)
-- Telugu (తెలుగు)
-- Marathi (मराठी)
-- Gujarati (ગુજરાતી)
-- Spanish
-- French
-- Korean
-- Japanese
+- `"Happy workout music for 45 minutes 🏋️‍♂️"`
+- `"Sad songs for rainy day mood 😢🌧️"`
+- `"Party music, something energetic for tonight 🎉"`
+- `"Focus music for studying, instrumental preferred"`
+- `"Road trip classics, rock vibes for 2 hours"`
 
-## Mood Categories
+## Supported Emotions
 
-- Happy
-- Sad
-- Angry
-- Excited
-- Calm
-- Romantic
-- Nostalgic
-- Energetic
-- Neutral
+- **Joy**: Upbeat, positive, energetic music
+- **Sadness**: Melancholic, slow, emotional tracks
+- **Anger**: Intense, aggressive, powerful music
+- **Fear**: Dark, mysterious, atmospheric sounds
+- **Surprise**: Experimental, unique, eclectic tracks
+- **Neutral**: Balanced, mainstream music
+
+## Error Handling
+
+- Graceful fallbacks when Spotify API fails
+- Alternative search methods for recommendations
+- Comprehensive logging for debugging
+- User-friendly error messages
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if needed
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Troubleshooting
 
-### Common Issues
+**Common Issues:**
 
-1. **"Missing required environment variables"**
-   - Ensure LASTFM_API_KEY and LASTFM_SHARED_SECRET are set in your .env file
+1. **Authentication Errors**: Check Spotify app credentials and redirect URI
+2. **Model Loading**: Ensure HuggingFace models download correctly
+3. **API Limits**: Spotify has rate limits - implement backoff if needed
+4. **Token Expiry**: Implement token refresh logic for production use
 
-2. **Model loading errors**
-   - The server has fallback modes if AI models fail to load
-   - Check internet connection for initial model downloads
-
-3. **No tracks found**
-   - Verify Last.fm API credentials are correct
-   - Try simpler queries with common genres
-
-4. **Port already in use**
-   - Change the port in main.py or kill existing processes on port 8086
-
-### Testing the API
-
-Use the Swagger UI at http://127.0.0.1:8086/docs to test endpoints interactively, or use curl:
-
-```bash
-# Test playlist generation
-curl -X POST "http://127.0.0.1:8086/tools/generate_mood_playlist" \
-     -H "Content-Type: application/json" \
-     -d '{"query": "happy bollywood songs for 30 minutes"}'
-
-# Test supported options
-curl -X POST "http://127.0.0.1:8086/tools/get_supported_options" \
-     -H "Content-Type: application/json" \
-     -d '{}'
-```
-
-## Architecture
-
-- **config.py**: Configuration management and settings
-- **mood_analyzer.py**: AI-powered mood and sentiment analysis
-- **playlist_generator.py**: Last.fm API integration and playlist creation
-- **main.py**: FastMCP server setup and tool definitions
-
-## Performance Notes
-
-- First run may take longer due to AI model downloads (~1-2GB)
-- Models are cached locally after first download
-- The server includes rate limiting and error handling for API calls
-- Fallback modes ensure functionality even if AI models fail to load
+**Debug Mode:**
+Set environment variable `DEBUG=1` for verbose logging.

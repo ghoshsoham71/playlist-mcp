@@ -6,15 +6,21 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.12.15",
+    "asyncio>=4.0.0",
     "beautifulsoup4>=4.13.4",
     "dotenv>=0.9.9",
     "emoji>=2.14.1",
     "fastmcp>=2.11.2",
+    "langdetect>=1.0.9",
     "markdownify>=1.1.0",
     "mcp>=1.12.4",
+    "numpy>=2.3.2",
     "pillow>=11.3.0",
     "python-dotenv>=1.1.1",
     "readabilipy>=0.3.0",
+    "requests>=2.32.4",
+    "scikit-learn>=1.7.1",
+    "spotify>=0.10.2",
     "torch>=2.8.0",
     "transformers>=4.55.0",
 ]
