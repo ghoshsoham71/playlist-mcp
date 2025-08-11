@@ -80,17 +80,7 @@ async def health_check() -> list[TextContent]:
 
 async def validate_config() -> str:
     """Validate server configuration."""
-    my_number = os.getenv('MY_NUMBER', '') 
-    client_id_status = "✅ Set" if os.getenv("SPOTIFY_CLIENT_ID") else "❌ Missing"
-    client_secret_status = "✅ Set" if os.getenv("SPOTIFY_CLIENT_SECRET") else "❌ Missing"
-    
-    return f"""Configuration Status:
-- MY_NUMBER: {my_number}
-- SPOTIFY_CLIENT_ID: {client_id_status}
-- SPOTIFY_CLIENT_SECRET: {client_secret_status}
-- Credentials initialized: {'✅ Yes' if cred else '❌ No'}
-"""
-
+    return os.getenv('MY_NUMBER', '') 
 
 async def authenticate_spotify() -> list[TextContent]:
     """Generate authentication URL for Spotify."""
