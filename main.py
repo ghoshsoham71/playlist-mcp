@@ -26,10 +26,16 @@ def initialize_credentials():
     """Initialize Spotify credentials and scope."""
     global cred, scope
     
-    redirect_uri = os.getenv(
-        "SPOTIFY_REDIRECT_URI", 
-        f"http://localhost:{port}/callback",
-    )
+    # Use environment variable or construct based on deployment
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
+    if not redirect_uri:
+        # For local development
+        if os.getenv("RENDER"):
+            # Running on Render - use the Render URL
+            redirect_uri = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME', 'playlist-mcp.onrender.com')}/callback"
+        else:
+            # Local development
+            redirect_uri = f"http://127.0.0.1:{port}/callback"
     
     cred = tk.Credentials(
         client_id=os.getenv("SPOTIFY_CLIENT_ID", ''),
@@ -84,7 +90,7 @@ async def authenticate_spotify() -> list[TextContent]:
             type="text", 
             text=f"🔗 Please authenticate with Spotify:\n{auth_url}\n\n"
                  f"After authorization, you'll be redirected to:\n{cred.redirect_uri}\n\n"
-                 f"Copy the 'code' parameter from the redirect URL and use it with the 'handle_callback' tool."
+                 f"Look for the 'code' parameter in the redirect URL and copy its value. Then use it with the 'handle_callback' tool."
         )]
     except Exception as e:
         return [TextContent(
@@ -262,11 +268,12 @@ async def debug_server_status() -> list[TextContent]:
 **Server Info:**
 - Port: {port}
 - MCP Endpoint: http://0.0.0.0:{port}/mcp/
+- Running on Render: {'✅ Yes' if os.getenv('RENDER') else '❌ No'}
 
 **Environment Variables:**
 - SPOTIFY_CLIENT_ID: {'✅ Set' if os.getenv('SPOTIFY_CLIENT_ID') else '❌ Not Set'}
 - SPOTIFY_CLIENT_SECRET: {'✅ Set' if os.getenv('SPOTIFY_CLIENT_SECRET') else '❌ Not Set'} 
-- SPOTIFY_REDIRECT_URI: {os.getenv('SPOTIFY_REDIRECT_URI', 'Using default')}
+- SPOTIFY_REDIRECT_URI: {os.getenv('SPOTIFY_REDIRECT_URI', 'Auto-detected')}
 - MY_NUMBER: {os.getenv('MY_NUMBER', 'Not set')}
 
 **Spotify Connection Status:**
@@ -348,6 +355,7 @@ async def run_server() -> None:
         
         if cred is not None:
             print(f"🎵 Spotify redirect URI: {cred.redirect_uri}")
+            print(f"💡 Note: You'll need to manually copy the authorization code from the redirect URL")
         
         # Log registered tools for debugging
         print(f"🛠️ Registered tools: health, validate, authenticate, handle_callback, generate_playlist, debug_status, list_tools")
