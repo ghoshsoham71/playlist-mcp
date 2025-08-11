@@ -117,12 +117,12 @@ class PlaylistGenerator:
                 'target_danceability': features['danceability']
             }
             
-            # Add seed tracks if available
+            # Use correct parameter name for tekore - track_ids instead of seed_tracks
             if seed_track_ids:
-                rec_params['seed_tracks'] = seed_track_ids
+                rec_params['track_ids'] = seed_track_ids
             else:
                 # Use seed genres as fallback
-                rec_params['seed_genres'] = self._get_genre_seeds(primary_sentiment)
+                rec_params['genres'] = self._get_genre_seeds(primary_sentiment)
             
             recs = self.client.recommendations(**rec_params)
             
@@ -157,15 +157,26 @@ class PlaylistGenerator:
             return tracks
         
         try:
-            # Get audio features in batches of 100 (Spotify API limit)
+            # Get audio features in smaller batches to avoid URL length issues
             all_features = []
-            for i in range(0, len(track_ids), 100):
-                batch_ids = track_ids[i:i + 100]
+            batch_size = 50  # Reduced batch size to avoid URL length issues
+            
+            for i in range(0, len(track_ids), batch_size):
+                batch_ids = track_ids[i:i + batch_size]
                 try:
-                    features = self.client.tracks_audio_features(batch_ids)
-                    all_features.extend(features if features else [])
+                    # Make individual requests for each track ID to avoid URL length issues
+                    batch_features = []
+                    for track_id in batch_ids:
+                        try:
+                            features = self.client.tracks_audio_features([track_id])
+                            batch_features.extend(features if features else [None])
+                        except Exception as single_error:
+                            print(f"Error getting audio features for track {track_id}: {single_error}")
+                            batch_features.append(None)
+                    
+                    all_features.extend(batch_features)
                 except Exception as batch_error:
-                    print(f"Error getting audio features for batch {i//100 + 1}: {batch_error}")
+                    print(f"Error getting audio features for batch {i//batch_size + 1}: {batch_error}")
                     # Skip this batch and continue with others
                     all_features.extend([None] * len(batch_ids))
             
