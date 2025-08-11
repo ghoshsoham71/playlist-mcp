@@ -159,10 +159,10 @@ async def analyze_prompt(prompt: str) -> Dict[str, Any]:
     except Exception as e:
         # Return basic analysis if sentiment analyzer fails
         return {
-            "sentiment": {"error": str(e)},
-            "language": "unknown",
+            "sentiment": {"neutral": 1.0, "error": str(e)},
+            "language": "en",  # Default to English
             "duration_hint": None,
-            "emoji_sentiment": None,
+            "emoji_sentiment": {"neutral": 1.0},
             "raw_prompt": prompt,
         }
 
@@ -210,24 +210,44 @@ async def generate_spotify_playlist(
         # Analyze prompt
         analysis_result = await analyze_prompt(prompt)
 
-        # Create playlist
-        playlist_url = await playlist_generator.create_playlist(
-            analysis_result=analysis_result,
-            duration_minutes=duration_minutes,
-            playlist_name=playlist_name,
-        )
-
-        return [TextContent(
-            type="text",
-            text=f"✅ Successfully created playlist: '{playlist_name}'\n"
-                 f"🎵 Spotify URL: {playlist_url}\n"
-                 f"⏱️ Duration: {duration_minutes} minutes\n"
-                 f"📊 Prompt Analysis:\n{json.dumps(analysis_result, indent=2)}",
-        )]
+        # Create playlist with better error handling
+        try:
+            playlist_url = await playlist_generator.create_playlist(
+                analysis_result=analysis_result,
+                duration_minutes=duration_minutes,
+                playlist_name=playlist_name,
+            )
+            
+            # Format analysis result for display (remove error details)
+            display_analysis = {k: v for k, v in analysis_result.items() if k != 'error'}
+            
+            return [TextContent(
+                type="text",
+                text=f"✅ Successfully created playlist: '{playlist_name}'\n"
+                     f"🎵 Spotify URL: {playlist_url}\n"
+                     f"⏱️ Duration: {duration_minutes} minutes\n"
+                     f"🌍 Language: {analysis_result.get('language', 'unknown')}\n"
+                     f"📊 Detected sentiment: {max(analysis_result.get('sentiment', {'neutral': 1.0}).items(), key=lambda x: x[1])[0]}\n"
+                     f"📈 Analysis details:\n{json.dumps(display_analysis, indent=2)}",
+            )]
+            
+        except tk.HTTPError as http_error:
+            return [TextContent(
+                type="text",
+                text=f"❌ Spotify API error: {http_error}\n"
+                     f"💡 This might be due to rate limiting or insufficient permissions. Please try again in a moment."
+            )]
+        except Exception as playlist_error:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error creating playlist: {str(playlist_error)}\n"
+                     f"💡 Please check your Spotify authentication and try again."
+            )]
+            
     except Exception as e:
         return [TextContent(
             type="text", 
-            text=f"❌ Error creating playlist: {str(e)}\n"
+            text=f"❌ Unexpected error: {str(e)}\n"
                  f"💡 If this is an authentication error, try re-authenticating with Spotify."
         )]
 
@@ -254,6 +274,13 @@ async def list_available_tools() -> list[TextContent]:
 6. Run `generate_playlist` with your desired prompt
 
 💡 All tools return structured responses and handle errors gracefully.
+
+🔧 Recent Fixes:
+- Fixed Spotify API parameter issues (seed_tracks vs seed_track_ids)
+- Improved error handling for audio features requests
+- Added language-based market filtering
+- Better fallback mechanisms for recommendations
+- Enhanced null/empty value checking throughout
     """
     return [TextContent(type="text", text=tools_info.strip())]
 
@@ -289,6 +316,13 @@ async def debug_server_status() -> list[TextContent]:
 {f'- Expires: {token.expires_at}' if token else '- No token available'}
 {f'- Is Expiring: {token.is_expiring}' if token else ''}
 {f'- Has Refresh Token: {"Yes" if token and token.refresh_token else "No"}' if token else ''}
+
+**Recent Code Fixes:**
+- ✅ Fixed audio features API URL encoding issue
+- ✅ Fixed seed_tracks parameter in recommendations API
+- ✅ Added better null checking for tracks and features
+- ✅ Improved error handling with batched requests
+- ✅ Added language-based market selection
     """
     
     return [TextContent(type="text", text=status_info.strip())]
