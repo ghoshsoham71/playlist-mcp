@@ -22,7 +22,6 @@ dependencies = [
     "requests>=2.32.4",
     "scikit-learn>=1.7.1",
     "spotify>=0.10.2",
-    "starlette>=0.47.2",
     "tekore>=6.0.0",
     "uvicorn>=0.35.0",
 ]
