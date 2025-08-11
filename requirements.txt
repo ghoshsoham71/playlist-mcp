@@ -8,3 +8,4 @@ asyncio
 requests
 numpy
 scikit-learn
+tekore
