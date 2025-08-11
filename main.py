@@ -2,9 +2,6 @@ import asyncio
 import json
 import os
 from typing import Dict, Any, Optional
-from urllib.parse import parse_qs, urlparse
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 
 import tekore as tk
 from fastmcp import FastMCP
@@ -23,354 +20,6 @@ sentiment_analyzer = SentimentAnalyzer()
 cred: Optional[tk.Credentials] = None
 scope: Optional[tk.Scope] = None
 port = int(os.getenv("PORT", 10000))
-callback_port = port + 1  # Use next port for callback server
-callback_server = None
-
-
-class CallbackHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for Spotify OAuth callback."""
-    
-    def do_GET(self):
-        """Handle GET request for OAuth callback."""
-        try:
-            # Parse URL and query parameters
-            parsed_url = urlparse(self.path)
-            query_params = parse_qs(parsed_url.query)
-            
-            code = query_params.get('code', [None])[0]
-            error = query_params.get('error', [None])[0]
-            
-            # Set response headers
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            
-            if error:
-                html_content = self._generate_error_page(error)
-            elif code:
-                html_content = self._generate_success_page(code)
-            else:
-                html_content = self._generate_no_code_page()
-            
-            # Send response
-            self.wfile.write(html_content.encode('utf-8'))
-            
-        except Exception as e:
-            print(f"Callback handler error: {e}")
-            self.send_response(500)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            error_html = f"<html><body><h1>Server Error</h1><p>{str(e)}</p></body></html>"
-            self.wfile.write(error_html.encode('utf-8'))
-    
-    def _generate_error_page(self, error: str) -> str:
-        """Generate error page HTML."""
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Spotify Auth - Error</title>
-            <style>
-                body {{ 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    margin: 0;
-                    padding: 40px;
-                    background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
-                    color: white;
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }}
-                .container {{
-                    background: rgba(255, 255, 255, 0.1);
-                    padding: 40px;
-                    border-radius: 20px;
-                    backdrop-filter: blur(10px);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                    text-align: center;
-                    max-width: 600px;
-                }}
-                .error {{
-                    color: #ff4444;
-                    font-size: 24px;
-                    margin-bottom: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>❌ Authentication Error</h1>
-                <div class="error">Error: {error}</div>
-                <p>Please try the authentication process again.</p>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def _generate_success_page(self, code: str) -> str:
-        """Generate success page HTML with prominent code display."""
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Spotify Auth - Success</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    margin: 0;
-                    padding: 20px;
-                    background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
-                    color: white;
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }}
-                .container {{
-                    background: rgba(255, 255, 255, 0.1);
-                    padding: 30px;
-                    border-radius: 20px;
-                    backdrop-filter: blur(10px);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                    text-align: center;
-                    max-width: 90%;
-                    width: 800px;
-                }}
-                .code-box {{
-                    background: rgba(0, 0, 0, 0.4);
-                    border: 3px solid #1DB954;
-                    border-radius: 15px;
-                    padding: 25px;
-                    margin: 25px 0;
-                    word-break: break-all;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    position: relative;
-                }}
-                .code-box:hover {{
-                    background: rgba(0, 0, 0, 0.6);
-                    transform: scale(1.01);
-                    border-color: #1ed760;
-                }}
-                .auth-code {{
-                    font-family: 'Courier New', monospace;
-                    font-size: clamp(18px, 4vw, 28px);
-                    font-weight: bold;
-                    color: #1DB954;
-                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-                    line-height: 1.3;
-                    margin: 0;
-                    padding: 10px;
-                    background: rgba(29, 185, 84, 0.1);
-                    border-radius: 10px;
-                }}
-                .copy-instruction {{
-                    font-size: 16px;
-                    color: #b3b3b3;
-                    margin-top: 15px;
-                    font-weight: 500;
-                }}
-                .success-icon {{
-                    font-size: 48px;
-                    margin-bottom: 15px;
-                    animation: pulse 2s infinite;
-                }}
-                @keyframes pulse {{
-                    0%, 100% {{ transform: scale(1); }}
-                    50% {{ transform: scale(1.1); }}
-                }}
-                .next-steps {{
-                    background: rgba(29, 185, 84, 0.2);
-                    border-radius: 10px;
-                    padding: 20px;
-                    margin-top: 25px;
-                    text-align: left;
-                    border-left: 4px solid #1DB954;
-                }}
-                .step {{
-                    margin-bottom: 8px;
-                    font-size: 15px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }}
-                .copy-status {{
-                    margin: 15px 0;
-                    padding: 10px;
-                    border-radius: 8px;
-                    font-weight: bold;
-                    display: none;
-                }}
-                .copy-success {{
-                    background: rgba(29, 185, 84, 0.3);
-                    color: #1ed760;
-                    border: 1px solid #1DB954;
-                }}
-                .copy-error {{
-                    background: rgba(255, 68, 68, 0.3);
-                    color: #ff6b6b;
-                    border: 1px solid #ff4444;
-                }}
-                @media (max-width: 600px) {{
-                    .container {{ padding: 20px; margin: 10px; }}
-                    .code-box {{ padding: 15px; margin: 15px 0; }}
-                    .auth-code {{ font-size: 16px; }}
-                }}
-            </style>
-            <script>
-                let copyCount = 0;
-                
-                function copyCode() {{
-                    const code = document.getElementById('authCode').textContent;
-                    const successDiv = document.getElementById('copySuccess');
-                    const errorDiv = document.getElementById('copyError');
-                    
-                    // Hide previous status
-                    successDiv.style.display = 'none';
-                    errorDiv.style.display = 'none';
-                    
-                    if (navigator.clipboard) {{
-                        navigator.clipboard.writeText(code).then(function() {{
-                            copyCount++;
-                            successDiv.textContent = `✅ Code copied to clipboard! (Copy #${{copyCount}})`;
-                            successDiv.style.display = 'block';
-                            setTimeout(() => {{
-                                successDiv.style.display = 'none';
-                            }}, 3000);
-                        }}).catch(function() {{
-                            showFallbackCopy(code);
-                        }});
-                    }} else {{
-                        showFallbackCopy(code);
-                    }}
-                }}
-                
-                function showFallbackCopy(code) {{
-                    const errorDiv = document.getElementById('copyError');
-                    errorDiv.innerHTML = `
-                        ⚠️ Auto-copy not supported. Please manually select and copy the code above.
-                        <br><small>Tip: Triple-click the code to select all of it quickly!</small>
-                    `;
-                    errorDiv.style.display = 'block';
-                    
-                    // Auto-select the code text
-                    const codeElement = document.getElementById('authCode');
-                    if (window.getSelection && document.createRange) {{
-                        const selection = window.getSelection();
-                        const range = document.createRange();
-                        range.selectNodeContents(codeElement);
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                    }}
-                }}
-                
-                // Try auto-copy on page load
-                window.onload = function() {{
-                    setTimeout(() => {{
-                        copyCode();
-                    }}, 500);
-                }}
-            </script>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✅</div>
-                <h1>Spotify Authentication Successful!</h1>
-                
-                <div id="copySuccess" class="copy-status copy-success"></div>
-                <div id="copyError" class="copy-status copy-error"></div>
-                
-                <h2 style="margin-bottom: 10px;">Your Authorization Code:</h2>
-                <div class="code-box" onclick="copyCode()">
-                    <div class="auth-code" id="authCode">{code}</div>
-                    <div class="copy-instruction">👆 Click anywhere in this box to copy the code</div>
-                </div>
-                
-                <div class="next-steps">
-                    <h3 style="margin-top: 0; color: #1DB954;">📋 Next Steps:</h3>
-                    <div class="step">
-                        <span>1.</span>
-                        <span>✅ Code should be auto-copied to your clipboard</span>
-                    </div>
-                    <div class="step">
-                        <span>2.</span>
-                        <span>🔄 Return to your AI assistant chat</span>
-                    </div>
-                    <div class="step">
-                        <span>3.</span>
-                        <span>📝 Paste the code when prompted for the callback</span>
-                    </div>
-                    <div class="step">
-                        <span>4.</span>
-                        <span>🎵 Start generating amazing playlists!</span>
-                    </div>
-                </div>
-                
-                <p style="margin-top: 25px; color: #b3b3b3; font-size: 14px;">
-                    You can now close this tab and return to your AI assistant.
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def _generate_no_code_page(self) -> str:
-        """Generate page when no code is found."""
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Spotify Auth - No Code</title>
-            <style>
-                body { 
-                    font-family: 'Segoe UI', sans-serif;
-                    padding: 40px;
-                    background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
-                    color: white;
-                    text-align: center;
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .container {
-                    background: rgba(255, 255, 255, 0.1);
-                    padding: 40px;
-                    border-radius: 20px;
-                    backdrop-filter: blur(10px);
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>⚠️ No Authorization Code</h1>
-                <p>No authorization code was found in the URL.</p>
-                <p>Please try the authentication process again.</p>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def log_message(self, format, *args):
-        """Override to reduce log spam."""
-        pass
-
-
-def start_callback_server():
-    """Start the callback HTTP server in a separate thread."""
-    global callback_server
-    
-    try:
-        server_address = ('', callback_port)
-        callback_server = HTTPServer(server_address, CallbackHandler)
-        
-        print(f"🌐 Starting callback server on port {callback_port}")
-        callback_server.serve_forever()
-    except Exception as e:
-        print(f"❌ Callback server error: {e}")
 
 
 def initialize_credentials():
@@ -391,14 +40,13 @@ def initialize_credentials():
     # Use environment variable or construct based on deployment
     redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
     if not redirect_uri:
-        # For deployment
         if os.getenv("RENDER"):
-            # Running on Render - Render doesn't support custom ports in URLs
+            # Running on Render - use the Render URL
             base_url = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'playlist-mcp.onrender.com')
             redirect_uri = f"https://{base_url}/callback"
         else:
-            # Local development - use callback server port
-            redirect_uri = f"http://127.0.0.1:{callback_port}/callback"
+            # Local development - use same port as MCP server
+            redirect_uri = f"http://127.0.0.1:{port}/callback"
     
     try:
         cred = tk.Credentials(
@@ -426,7 +74,7 @@ async def health_check() -> list[TextContent]:
     """Health check endpoint to verify server is running."""
     return [TextContent(
         type="text", 
-        text=f"✅ MCP Server is healthy and running on port {port}\n🌐 Callback server on port {callback_port}"
+        text=f"✅ MCP Server is healthy and running on port {port}"
     )]
 
 
@@ -454,7 +102,7 @@ async def authenticate_spotify() -> list[TextContent]:
                     type="text",
                     text="❌ Failed to initialize Spotify credentials. Please check your environment variables:\n- SPOTIFY_CLIENT_ID\n- SPOTIFY_CLIENT_SECRET"
                 )]
-        
+            
         # Check if credentials are properly initialized
         if cred is None or not cred.client_id or not cred.client_secret:
             return [TextContent(
@@ -468,6 +116,13 @@ async def authenticate_spotify() -> list[TextContent]:
                 text="❌ Scope not initialized. Please restart the server."
             )]
         
+        # Additional safety check
+        if cred is None:
+            return [TextContent(
+                type="text",
+                text="❌ Credentials not initialized after setup. Please check environment variables."
+            )]
+        
         auth_url = cred.user_authorisation_url(scope=scope)
         return [TextContent(
             type="text", 
@@ -476,18 +131,15 @@ async def authenticate_spotify() -> list[TextContent]:
 **Step 1:** Click this link to authorize:
 {auth_url}
 
-**Step 2:** After authorization, you'll be redirected to a beautiful page that will:
-• ✅ **Automatically copy the authorization code to your clipboard**
-• 📋 **Display the code in LARGE, prominent text**
-• 🎨 **Provide a mobile-friendly interface**
-• 🔄 **Show clear next steps**
+**Step 2:** After authorization, you'll be redirected to:
+{cred.redirect_uri}
 
-**Step 3:** Return here and use the 'handle_callback' tool with the code
+**Step 3:** Copy the 'code' parameter from the redirect URL and use it with the 'handle_callback' tool.
 
-**Redirect URL:** {cred.redirect_uri}
+**Example redirect URL:**
+{cred.redirect_uri}?code=YOUR_CODE_HERE&state=...
 
-💡 **The authorization code will be displayed prominently with auto-copy functionality!**
-🎯 **No more squinting at tiny URL parameters!**"""
+💡 **Just copy the long code after 'code=' and paste it when using handle_callback!**"""
         )]
     except Exception as e:
         return [TextContent(
@@ -504,7 +156,7 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
         if not code or not code.strip():
             return [TextContent(
                 type="text", 
-                text="❌ No authorization code provided. Please provide the authorization code from the Spotify redirect page."
+                text="❌ No authorization code provided. Please provide the authorization code from the Spotify redirect URL."
             )]
         
         # Clean the code (remove any whitespace)
@@ -589,7 +241,7 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
         return [TextContent(
             type="text", 
             text=f"❌ Authentication failed: {error_details}\n"
-                 f"💡 Make sure to use the complete authorization code from the callback page."
+                 f"💡 Make sure to use the complete authorization code from the redirect URL."
         )]
 
 
@@ -750,19 +402,19 @@ async def list_available_tools() -> list[TextContent]:
 2. Run `validate` to check configuration  
 3. Run `authenticate` to get Spotify auth URL
 4. Visit the URL and authorize the app
-5. Copy the code from the beautiful callback page (auto-copied!)
+5. Copy the code from the redirect URL (after 'code=')
 6. Run `handle_callback` with the authorization code
 7. Run `generate_playlist` with your desired prompt
 
 💡 **All tools return structured responses and handle errors gracefully.**
 
-🆕 **New Features:**
-- ✅ Dedicated callback server with beautiful UI
-- 📋 Auto-copy authorization code to clipboard
-- 🎨 Large, mobile-friendly code display  
-- 📱 Responsive design for all devices
-- 🔄 Better error handling throughout
-- 🎯 Enhanced playlist generation with sentiment analysis
+🔧 **Recent Fixes:**
+- ✅ Simplified authentication flow (no callback server needed)
+- ✅ Fixed Spotify API parameter issues 
+- ✅ Improved error handling for audio features requests
+- ✅ Added language-based market filtering
+- ✅ Better fallback mechanisms for recommendations
+- ✅ Enhanced null/empty value checking throughout
     """
     return [TextContent(type="text", text=tools_info.strip())]
 
@@ -781,9 +433,7 @@ async def debug_server_status() -> list[TextContent]:
 
 **Server Info:**
 - MCP Port: {port}
-- Callback Port: {callback_port} 
 - MCP Endpoint: http://0.0.0.0:{port}/mcp/
-- Callback Endpoint: http://0.0.0.0:{callback_port}/callback ✅
 - Running on Render: {'✅ Yes' if os.getenv('RENDER') else '❌ No'}
 
 **Environment Variables:**
@@ -799,16 +449,18 @@ async def debug_server_status() -> list[TextContent]:
 - Client Connected: {'✅ Yes' if client is not None else '❌ No'}
 - Playlist Generator Ready: {'✅ Yes' if playlist_generator is not None else '❌ No'}
 
-**Redirect URI:** {cred.redirect_uri if cred else 'Not available'}
+**Redirect URI:** {cred.redirect_uri if cred is not None else 'Not available'}
 
 **Token Status:**
 {f'- Expires: {token.expires_at}' if token else '- No token available'}
 {f'- Is Expiring: {token.is_expiring}' if token else ''}
 {f'- Has Refresh Token: {"Yes" if token and token.refresh_token else "No"}' if token else ''}
 
-**Callback Server Status:**
-- Server Running: {'✅ Yes' if callback_server else '❌ No'}
-- Port Available: {callback_port}
+**Architecture Notes:**
+- ✅ Simplified design - no separate callback server needed
+- ✅ User manually copies code from redirect URL
+- ✅ Same port for MCP server and redirect URI
+- ✅ Works reliably across all deployment environments
 """
     
     return [TextContent(type="text", text=status_info.strip())]
@@ -862,7 +514,7 @@ def setup_mcp_server() -> FastMCP:
 
 
 async def run_server() -> None:
-    """Run the MCP server and callback server."""
+    """Run the MCP server."""
     try:
         # Initialize credentials first
         print("🔧 Initializing credentials...")
@@ -872,28 +524,18 @@ async def run_server() -> None:
             print("- SPOTIFY_CLIENT_ID")
             print("- SPOTIFY_CLIENT_SECRET")
         
-        # Start callback server in background thread  
-        print("🌐 Starting callback server...")
-        callback_thread = threading.Thread(target=start_callback_server, daemon=True)
-        callback_thread.start()
-        
-        # Small delay to let callback server start
-        await asyncio.sleep(2)
-        
         # Setup MCP server
         server = setup_mcp_server()
         
         print(f"🚀 Starting Tekore Playlist MCP Server on port {port}")
         print(f"🔗 MCP endpoint: http://0.0.0.0:{port}/mcp/")
-        print(f"🌐 Callback endpoint: http://0.0.0.0:{callback_port}/callback")
         
         if cred is not None:
             print(f"🎵 Spotify redirect URI: {cred.redirect_uri}")
-            print(f"💡 Callback page will auto-copy authorization codes!")
+            print(f"💡 Users will manually copy authorization codes from redirect URLs")
         
         # Log registered components
         print(f"🛠️ Registered MCP tools: health, validate, authenticate, handle_callback, generate_playlist, debug_status, list_tools")
-        print(f"🌐 Callback server running on separate thread")
         print(f"✅ Server ready for connections!")
         
         await server.run_async("streamable-http", host="0.0.0.0", port=port)
@@ -911,8 +553,6 @@ async def main() -> None:
         await run_server()
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")
-        if callback_server:
-            callback_server.shutdown()
     except Exception as e:
         print(f"❌ Server error: {e}")
         raise
