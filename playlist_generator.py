@@ -4,19 +4,29 @@ import tekore as tk
 
 
 class PlaylistGenerator:
-    """Generates Spotify playlists using Tekore client based on sentiment analysis."""
+    """Generates Spotify playlists using Tekore client - Updated for deprecated API endpoints."""
     
     def __init__(self, client: tk.Spotify):
         self.client = client
         
-        # Sentiment to audio features mapping
-        self.sentiment_mapping = {
-            "joy": {"valence": 0.8, "energy": 0.7, "danceability": 0.8},
-            "sadness": {"valence": 0.2, "energy": 0.3, "danceability": 0.4},
-            "anger": {"valence": 0.3, "energy": 0.9, "danceability": 0.6},
-            "fear": {"valence": 0.2, "energy": 0.4, "danceability": 0.3},
-            "surprise": {"valence": 0.6, "energy": 0.6, "danceability": 0.7},
-            "neutral": {"valence": 0.5, "energy": 0.5, "danceability": 0.5}
+        # Sentiment to search keywords mapping (since audio features API is deprecated)
+        self.sentiment_keywords = {
+            "joy": ["happy", "upbeat", "energetic", "dance", "party", "fun", "positive", "cheerful", "bright"],
+            "sadness": ["sad", "melancholy", "emotional", "ballad", "slow", "acoustic", "heartbreak", "blue"],
+            "anger": ["rock", "metal", "intense", "aggressive", "punk", "hard", "heavy", "angry"],
+            "fear": ["dark", "ambient", "electronic", "atmospheric", "mysterious", "haunting", "eerie"],
+            "surprise": ["experimental", "jazz", "unique", "world", "fusion", "alternative", "indie", "eclectic"],
+            "neutral": ["popular", "top", "hits", "trending", "mainstream", "classic", "best", "favorite"]
+        }
+        
+        # Genre keywords for each sentiment
+        self.sentiment_genres = {
+            "joy": ["pop", "dance", "funk", "disco", "reggae", "latin"],
+            "sadness": ["blues", "folk", "acoustic", "indie", "alternative", "country"],
+            "anger": ["rock", "metal", "punk", "hardcore", "grunge", "industrial"],
+            "fear": ["ambient", "electronic", "darkwave", "gothic", "post-rock", "experimental"],
+            "surprise": ["jazz", "world", "fusion", "progressive", "avant-garde", "new age"],
+            "neutral": ["pop", "rock", "indie", "alternative", "classic rock", "soul"]
         }
         
         # Language to market mapping for better recommendations
@@ -30,21 +40,25 @@ class PlaylistGenerator:
     async def create_playlist(self, analysis_result: Dict[str, Any], duration_minutes: int, playlist_name: str) -> str:
         """Create a Spotify playlist based on analysis results."""
         user = self.client.current_user()
-        target_tracks = max(10, int(duration_minutes / 3.5))
+        target_tracks = max(15, int(duration_minutes / 3.5))  # Aim for ~3.5 min average per track
         
-        # Get tracks: 30% from user history, 70% from recommendations
-        user_tracks_count = int(target_tracks * 0.3)
-        rec_tracks_count = target_tracks - user_tracks_count
+        # Get tracks: 40% from user history, 60% from search-based recommendations
+        user_tracks_count = int(target_tracks * 0.4)
+        search_tracks_count = target_tracks - user_tracks_count
+        
+        print(f"🎯 Target: {target_tracks} tracks ({user_tracks_count} from user, {search_tracks_count} from search)")
         
         user_tracks = await self._get_user_tracks(user_tracks_count, analysis_result)
-        rec_tracks = await self._get_recommended_tracks(rec_tracks_count, analysis_result, user_tracks)
+        search_tracks = await self._get_search_based_tracks(search_tracks_count, analysis_result, user_tracks)
         
         # Combine and shuffle
-        all_tracks = user_tracks + rec_tracks
+        all_tracks = user_tracks + search_tracks
         random.shuffle(all_tracks)
         
+        print(f"✅ Collected {len(all_tracks)} total tracks")
+        
         # Create playlist
-        description = f"AI-generated playlist based on: {analysis_result['raw_prompt'][:100]}..."
+        description = f"AI-generated playlist based on: '{analysis_result['raw_prompt'][:80]}...'"
         playlist = self.client.playlist_create(
             user_id=user.id,
             name=playlist_name,
@@ -54,11 +68,13 @@ class PlaylistGenerator:
         
         # Add tracks in batches
         track_uris = [track.uri for track in all_tracks if track and hasattr(track, 'uri')]
-        for i in range(0, len(track_uris), 100):
-            batch = track_uris[i:i + 100]
-            if batch:  # Only add if batch is not empty
-                self.client.playlist_add(playlist.id, batch)
+        if track_uris:
+            for i in range(0, len(track_uris), 100):
+                batch = track_uris[i:i + 100]
+                if batch:  # Only add if batch is not empty
+                    self.client.playlist_add(playlist.id, batch)
         
+        print(f"🎵 Created playlist with {len(track_uris)} tracks")
         return playlist.external_urls['spotify']
     
     async def _get_user_tracks(self, count: int, analysis_result: Dict[str, Any]) -> List[Union[tk.model.Track, tk.model.FullTrack]]:
@@ -66,12 +82,21 @@ class PlaylistGenerator:
         all_tracks = []
         
         try:
-            # Get top tracks and recent tracks
-            top_tracks = self.client.current_user_top_tracks(limit=50, time_range='medium_term')
-            all_tracks.extend([track for track in top_tracks.items if track])
+            # Get top tracks from different time ranges
+            for time_range in ['short_term', 'medium_term', 'long_term']:
+                try:
+                    top_tracks = self.client.current_user_top_tracks(limit=20, time_range=time_range)
+                    all_tracks.extend([track for track in top_tracks.items if track])
+                except Exception as e:
+                    print(f"Warning: Could not get {time_range} top tracks: {e}")
             
-            recent = self.client.playback_recently_played(limit=50)
-            all_tracks.extend([item.track for item in recent.items if item.track])
+            # Get recent tracks
+            try:
+                recent = self.client.playback_recently_played(limit=30)
+                all_tracks.extend([item.track for item in recent.items if item.track])
+            except Exception as e:
+                print(f"Warning: Could not get recent tracks: {e}")
+                
         except Exception as e:
             print(f"Error getting user tracks: {e}")
             return []
@@ -80,193 +105,128 @@ class PlaylistGenerator:
         unique_tracks = {track.id: track for track in all_tracks if track and hasattr(track, 'id')}.values()
         tracks_list = list(unique_tracks)
         
-        # Filter by sentiment if enough tracks
-        if len(tracks_list) > count * 2:
-            tracks_list = await self._filter_by_sentiment(tracks_list, analysis_result)
+        print(f"📚 Found {len(tracks_list)} unique user tracks")
         
+        # Return random selection
         return random.sample(tracks_list, min(count, len(tracks_list)))
     
-    async def _get_recommended_tracks(
+    async def _get_search_based_tracks(
         self, count: int, analysis_result: Dict[str, Any], user_tracks: List
     ) -> List[tk.model.FullTrack]:
-        """Get recommended tracks based on sentiment."""
+        """Get tracks through search (replacement for deprecated recommendations API)."""
         # Get primary sentiment
         sentiment_scores = analysis_result.get('sentiment', {})
         if not sentiment_scores:
             sentiment_scores = {'neutral': 1.0}
         
         primary_sentiment = max(sentiment_scores.items(), key=lambda x: x[1])[0]
-        features = self.sentiment_mapping.get(primary_sentiment, self.sentiment_mapping['neutral'])
-        
-        # Prepare seed tracks (limit to 5 as per Spotify API)
-        seed_track_ids = None
-        if user_tracks:
-            seed_track_ids = [track.id for track in user_tracks[:5] if track and hasattr(track, 'id')]
+        print(f"🎭 Primary sentiment: {primary_sentiment}")
         
         # Get market based on detected language
         language = analysis_result.get('language', 'en')
         market = self.language_markets.get(language, 'US')
         
-        try:
-            # Use correct parameter name for seed tracks
-            rec_params = {
-                'limit': min(100, count * 2),
-                'market': market,
-                'target_valence': features['valence'],
-                'target_energy': features['energy'],
-                'target_danceability': features['danceability']
-            }
-            
-            # Use correct parameter name for tekore - track_ids instead of seed_tracks
-            if seed_track_ids:
-                rec_params['track_ids'] = seed_track_ids
-            else:
-                # Use seed genres as fallback
-                rec_params['genres'] = self._get_genre_seeds(primary_sentiment)
-            
-            recs = self.client.recommendations(**rec_params)
-            
-            # Filter out duplicates from user tracks and None values
-            user_ids = {track.id for track in user_tracks if track and hasattr(track, 'id')}
-            filtered = [track for track in recs.tracks if track and track.id not in user_ids]
-            return filtered[:count]
-            
-        except Exception as e:
-            print(f"Error getting recommendations: {e}")
-            return await self._fallback_search(count, primary_sentiment, language)
-    
-    def _get_genre_seeds(self, sentiment: str) -> List[str]:
-        """Get genre seeds based on sentiment."""
-        genre_mapping = {
-            "joy": ["pop", "dance", "funk"],
-            "sadness": ["blues", "folk", "indie"],
-            "anger": ["rock", "metal", "punk"],
-            "fear": ["ambient", "electronic", "classical"],
-            "surprise": ["jazz", "world-music", "experimental"],
-            "neutral": ["pop", "rock", "indie"]
-        }
-        return genre_mapping.get(sentiment, ["pop", "rock", "indie"])[:5]  # Limit to 5 genres
-    
-    async def _filter_by_sentiment(self, tracks: List, analysis_result: Dict[str, Any]) -> List:
-        """Filter tracks based on audio features matching sentiment."""
-        if not tracks:
-            return tracks
+        # Get search keywords and genres for this sentiment
+        keywords = self.sentiment_keywords.get(primary_sentiment, self.sentiment_keywords['neutral'])
+        genres = self.sentiment_genres.get(primary_sentiment, self.sentiment_genres['neutral'])
         
-        track_ids = [track.id for track in tracks if track and hasattr(track, 'id')]
-        if not track_ids:
-            return tracks
+        all_found_tracks = []
+        user_track_ids = {track.id for track in user_tracks if track and hasattr(track, 'id')}
         
-        try:
-            # Get audio features in smaller batches to avoid URL length issues
-            all_features = []
-            batch_size = 50  # Reduced batch size to avoid URL length issues
-            
-            for i in range(0, len(track_ids), batch_size):
-                batch_ids = track_ids[i:i + batch_size]
-                try:
-                    # Make individual requests for each track ID to avoid URL length issues
-                    batch_features = []
-                    for track_id in batch_ids:
-                        try:
-                            features = self.client.tracks_audio_features([track_id])
-                            batch_features.extend(features if features else [None])
-                        except Exception as single_error:
-                            print(f"Error getting audio features for track {track_id}: {single_error}")
-                            batch_features.append(None)
-                    
-                    all_features.extend(batch_features)
-                except Exception as batch_error:
-                    print(f"Error getting audio features for batch {i//batch_size + 1}: {batch_error}")
-                    # Skip this batch and continue with others
-                    all_features.extend([None] * len(batch_ids))
-            
-            # Score tracks by sentiment match
-            sentiment_scores = analysis_result.get('sentiment', {})
-            if not sentiment_scores:
-                return tracks
-            
-            primary_sentiment = max(sentiment_scores.items(), key=lambda x: x[1])[0]
-            target = self.sentiment_mapping.get(primary_sentiment, self.sentiment_mapping['neutral'])
-            
-            scored_tracks = []
-            for track, features in zip(tracks, all_features):
-                if track and features:
-                    score = self._sentiment_match_score(features, target)
-                    scored_tracks.append((track, score))
-                elif track:
-                    # Include track with neutral score if no features available
-                    scored_tracks.append((track, 0.5))
-            
-            # Sort by score and return tracks
-            scored_tracks.sort(key=lambda x: x[1], reverse=True)
-            return [track for track, _ in scored_tracks]
-            
-        except Exception as e:
-            print(f"Error filtering by sentiment: {e}")
-            return tracks
-    
-    def _sentiment_match_score(self, features: tk.model.AudioFeatures, target: Dict[str, float]) -> float:
-        """Calculate sentiment match score for a track."""
-        if not features:
-            return 0.5
+        # Search with different strategies
+        search_queries = []
         
-        scores = []
-        for feature, target_val in target.items():
-            track_val = getattr(features, feature, 0.5)
-            if track_val is not None:
-                scores.append(1.0 - abs(track_val - target_val))
-        return sum(scores) / len(scores) if scores else 0.5
-    
-    async def _fallback_search(self, count: int, sentiment: str, language: str = 'en') -> List[tk.model.FullTrack]:
-        """Fallback search when recommendations fail."""
-        keywords_by_sentiment = {
-            "joy": ["happy", "upbeat", "positive", "dance", "party"],
-            "sadness": ["sad", "melancholy", "emotional", "ballad", "slow"],
-            "anger": ["rock", "intense", "aggressive", "metal", "punk"],
-            "fear": ["dark", "ambient", "mysterious", "atmospheric", "electronic"],
-            "surprise": ["experimental", "unique", "jazz", "world", "fusion"],
-            "neutral": ["popular", "trending", "top", "hits", "mainstream"]
-        }
+        # Strategy 1: Genre-based searches
+        for genre in genres[:3]:  # Limit to top 3 genres
+            search_queries.append(f"genre:{genre}")
+            
+        # Strategy 2: Keyword-based searches
+        for keyword in keywords[:4]:  # Limit to top 4 keywords
+            search_queries.append(keyword)
+            
+        # Strategy 3: Combined searches
+        search_queries.append(f"{keywords[0]} {genres[0]}")
+        if len(keywords) > 1 and len(genres) > 1:
+            search_queries.append(f"{keywords[1]} {genres[1]}")
         
-        keywords = keywords_by_sentiment.get(sentiment, ["popular", "trending"])
-        market = self.language_markets.get(language, 'US')
+        # Strategy 4: Year-based searches for variety
+        current_year = 2025
+        for year_offset in [0, -5, -10, -15]:  # Current, 2019, 2014, 2009
+            year = current_year + year_offset
+            search_queries.append(f"{keywords[0]} year:{year}")
         
-        all_tracks = []
-        for keyword in keywords:
+        print(f"🔍 Using {len(search_queries)} search strategies")
+        
+        for query in search_queries:
             try:
                 results = self.client.search(
-                    query=keyword, 
+                    query=query, 
                     types=('track',), 
                     limit=20,
                     market=market
                 )
+                
                 if results and len(results) > 0 and results[0]:  # tracks is first in tuple
                     tracks_page = results[0]
                     if hasattr(tracks_page, 'items'):
-                        all_tracks.extend([track for track in tracks_page.items if track])
+                        # Filter out user tracks and None values
+                        new_tracks = [
+                            track for track in tracks_page.items 
+                            if track and hasattr(track, 'id') and track.id not in user_track_ids
+                        ]
+                        all_found_tracks.extend(new_tracks)
+                        
             except Exception as e:
-                print(f"Search error for {keyword}: {e}")
+                print(f"Search error for '{query}': {e}")
+                continue
         
-        # Remove duplicates and return random selection
+        # Remove duplicates
+        if all_found_tracks:
+            unique_tracks = {track.id: track for track in all_found_tracks if track and hasattr(track, 'id')}.values()
+            tracks_list = list(unique_tracks)
+            print(f"🔍 Found {len(tracks_list)} unique search results")
+            
+            # Return random selection
+            return random.sample(tracks_list, min(count, len(tracks_list)))
+        else:
+            print("⚠️ No tracks found through search, using fallback")
+            return await self._fallback_popular_search(count, market, user_track_ids)
+    
+    async def _fallback_popular_search(self, count: int, market: str, exclude_ids: set) -> List[tk.model.FullTrack]:
+        """Fallback to popular/trending tracks when other searches fail."""
+        fallback_queries = [
+            "top hits", "trending", "popular", "best songs", "chart hits",
+            "new releases", "viral", "most played", "radio hits", "favorites"
+        ]
+        
+        all_tracks = []
+        
+        for query in fallback_queries:
+            try:
+                results = self.client.search(
+                    query=query, 
+                    types=('track',), 
+                    limit=15,
+                    market=market
+                )
+                
+                if results and len(results) > 0 and results[0]:
+                    tracks_page = results[0]
+                    if hasattr(tracks_page, 'items'):
+                        new_tracks = [
+                            track for track in tracks_page.items 
+                            if track and hasattr(track, 'id') and track.id not in exclude_ids
+                        ]
+                        all_tracks.extend(new_tracks)
+                        
+            except Exception as e:
+                print(f"Fallback search error for '{query}': {e}")
+        
         if all_tracks:
             unique_tracks = {track.id: track for track in all_tracks if track and hasattr(track, 'id')}.values()
             tracks_list = list(unique_tracks)
+            print(f"🆘 Fallback found {len(tracks_list)} tracks")
             return random.sample(tracks_list, min(count, len(tracks_list)))
         else:
+            print("❌ All search strategies failed")
             return []
-    
-    def _filter_by_language(self, tracks: List, target_language: str) -> List:
-        """Filter tracks by language/market preference."""
-        # This is a simplified approach - in practice, you might want to use
-        # track metadata or artist information for better language filtering
-        if not tracks or target_language == 'en':
-            return tracks
-        
-        # For now, return all tracks since determining track language
-        # requires additional API calls or external services
-        # In a production system, you might:
-        # 1. Use artist country information
-        # 2. Use lyrics analysis services
-        # 3. Use track popularity in specific markets
-        
-        return tracks
