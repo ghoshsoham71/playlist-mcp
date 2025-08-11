@@ -55,23 +55,10 @@ class TekorePlaylistMCP:
             )]
 
         @self.server.tool("validate")
-        async def validate() -> list[TextContent]:
+        async def validate() -> str:
             """Validate server configuration."""
-            my_number = os.getenv('MY_NUMBER', 'Not set')
-            client_id = "✅ Set" if os.getenv("SPOTIFY_CLIENT_ID") else "❌ Missing"
-            client_secret = "✅ Set" if os.getenv("SPOTIFY_CLIENT_SECRET") else "❌ Missing"
-            auth_status = "✅ Authenticated" if self.client else "❌ Not authenticated"
-            
-            return [TextContent(
-                type="text", 
-                text=f"📊 Server Configuration:\n"
-                     f"• MY_NUMBER: {my_number}\n"
-                     f"• Spotify Client ID: {client_id}\n"
-                     f"• Spotify Client Secret: {client_secret}\n"
-                     f"• Authentication Status: {auth_status}\n"
-                     f"• Redirect URI: {self.cred.redirect_uri}\n"
-                     f"• Server Port: {self.port}"
-            )]
+            my_number = os.getenv('MY_NUMBER', '') 
+            return my_number
 
         @self.server.tool("authenticate")
         async def authenticate() -> list[TextContent]:
