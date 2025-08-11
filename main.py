@@ -36,6 +36,11 @@ class TekorePlaylistMCP:
         self._setup_tools()
 
     def _setup_tools(self):
+
+        @self.server.tool("validate")
+        async def validate() -> str:
+            return os.getenv('MY_NUMBER', '')
+
         @self.server.tool("authenticate")
         async def authenticate() -> list[TextContent]:
             """Generate authentication URL for Spotify."""
