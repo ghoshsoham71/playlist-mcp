@@ -26,9 +26,14 @@ def initialize_credentials():
     """Initialize Spotify credentials and scope."""
     global cred, scope
     
+    print("🔧 Initializing credentials...")
+    
     # Check if required environment variables are set
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    
+    print(f"   - Client ID: {'✅ Set' if client_id else '❌ Missing'}")
+    print(f"   - Client Secret: {'✅ Set' if client_secret else '❌ Missing'}")
     
     if not client_id or not client_secret:
         print("❌ Missing Spotify credentials!")
@@ -47,6 +52,8 @@ def initialize_credentials():
         else:
             # Local development - use same port as MCP server
             redirect_uri = f"http://127.0.0.1:{port}/callback"
+    
+    print(f"   - Redirect URI: {redirect_uri}")
     
     try:
         cred = tk.Credentials(
@@ -82,41 +89,43 @@ async def validate_config() -> str:
     """Validate server configuration."""
     return os.getenv('MY_NUMBER', '') 
 
+
 async def authenticate_spotify() -> list[TextContent]:
-    """Generate authentication URL for Spotify."""
+    """Generate authentication URL for Spotify - FIXED VERSION."""
     try:
-        # Ensure credentials are initialized
+        print("🔄 Starting authentication process...")
+        
+        # Force re-initialization of credentials
         if cred is None:
+            print("   - Credentials not found, initializing...")
             if not initialize_credentials():
-                return [TextContent(
-                    type="text",
-                    text="❌ Failed to initialize Spotify credentials. Please check your environment variables:\n- SPOTIFY_CLIENT_ID\n- SPOTIFY_CLIENT_SECRET"
-                )]
+                error_msg = "❌ Failed to initialize Spotify credentials. Please check your environment variables:\n- SPOTIFY_CLIENT_ID\n- SPOTIFY_CLIENT_SECRET"
+                print(f"   - {error_msg}")
+                return [TextContent(type="text", text=error_msg)]
+        
+        # Double-check after initialization
+        if cred is None:
+            error_msg = "❌ Credentials still None after initialization"
+            print(f"   - {error_msg}")
+            return [TextContent(type="text", text=error_msg)]
             
-        # Check if credentials are properly initialized
-        if cred is None or not cred.client_id or not cred.client_secret:
-            return [TextContent(
-                type="text",
-                text="❌ Spotify credentials not configured. Please set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables."
-            )]
+        if not cred.client_id or not cred.client_secret:
+            error_msg = "❌ Spotify credentials not properly configured"
+            print(f"   - {error_msg}")
+            return [TextContent(type="text", text=error_msg)]
         
         if scope is None:
-            return [TextContent(
-                type="text",
-                text="❌ Scope not initialized. Please restart the server."
-            )]
+            error_msg = "❌ Scope not initialized"
+            print(f"   - {error_msg}")
+            return [TextContent(type="text", text=error_msg)]
         
-        # Additional safety check
-        if cred is None:
-            return [TextContent(
-                type="text",
-                text="❌ Credentials not initialized after setup. Please check environment variables."
-            )]
-        
+        # Generate the auth URL
+        print("   - Generating authentication URL...")
         auth_url = cred.user_authorisation_url(scope=scope)
-        return [TextContent(
-            type="text", 
-            text=f"""🔗 **SPOTIFY AUTHENTICATION**
+        print(f"   - URL generated: {auth_url[:50]}...")
+        
+        # Create the response text
+        response_text = f"""🔗 **SPOTIFY AUTHENTICATION**
 
 **Step 1:** Click this link to authorize:
 {auth_url}
@@ -130,12 +139,16 @@ async def authenticate_spotify() -> list[TextContent]:
 {cred.redirect_uri}?code=YOUR_CODE_HERE&state=...
 
 💡 **Just copy the long code after 'code=' and paste it when using handle_callback!**"""
-        )]
+        
+        print("✅ Authentication response prepared")
+        return [TextContent(type="text", text=response_text)]
+        
     except Exception as e:
-        return [TextContent(
-            type="text", 
-            text=f"❌ Error generating authentication URL: {str(e)}\n💡 Try running 'debug_status' to check configuration"
-        )]
+        error_msg = f"❌ Error generating authentication URL: {str(e)}\n💡 Try running 'debug_status' to check configuration"
+        print(f"❌ Authentication error: {e}")
+        import traceback
+        traceback.print_exc()
+        return [TextContent(type="text", text=error_msg)]
 
 
 async def handle_spotify_callback(code: str) -> list[TextContent]:
@@ -143,6 +156,8 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
     global client, token, playlist_generator
     
     try:
+        print(f"🔄 Processing callback with code: {code[:10]}...")
+        
         if not code or not code.strip():
             return [TextContent(
                 type="text", 
@@ -153,6 +168,7 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
         code = code.strip()
         
         if cred is None:
+            print("   - Credentials not found, initializing...")
             if not initialize_credentials():
                 return [TextContent(
                     type="text",
@@ -166,17 +182,20 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
                 text="❌ Failed to initialize credentials. Please check your Spotify environment variables."
             )]
         
-        print(f"🔄 Requesting token with code: {code[:10]}...")
+        print(f"   - Requesting token with code: {code[:10]}...")
         
         # Request token
         token = cred.request_user_token(code)
-        if token:
+        if token and token.access_token:
+            print(f"   - Token received: {token.access_token[:20]}...")
             client = tk.Spotify(token)
             playlist_generator = PlaylistGenerator(client)
             
             # Test connection
             try:
+                print("   - Testing API connection...")
                 user = client.current_user()
+                print(f"   - Connected as: {user.id}")
                 return [TextContent(
                     type="text", 
                     text=f"""✅ **AUTHENTICATION SUCCESSFUL!**
@@ -195,13 +214,23 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
 """
                 )]
             except Exception as user_error:
-                print(f"❌ User info error: {user_error}")
-                return [TextContent(
-                    type="text", 
-                    text=f"✅ **Authentication successful** but couldn't fetch user info.\n"
-                         f"You can still generate playlists!\n"
-                         f"Debug info: {str(user_error)}"
-                )]
+                print(f"   - User info error: {user_error}")
+                # Check if it's the 401 error we've been seeing
+                if "401" in str(user_error) or "No token provided" in str(user_error):
+                    return [TextContent(
+                        type="text", 
+                        text=f"⚠️ **Authentication completed but API test failed**\n"
+                             f"Error: {str(user_error)}\n\n"
+                             f"**Token status:** {token.access_token[:20] if token and token.access_token else 'None'}...\n"
+                             f"**Try generating a playlist anyway - it might still work!**"
+                    )]
+                else:
+                    return [TextContent(
+                        type="text", 
+                        text=f"✅ **Authentication successful** but couldn't fetch user info.\n"
+                             f"You can still generate playlists!\n"
+                             f"Debug info: {str(user_error)}"
+                    )]
         else:
             return [TextContent(
                 type="text", 
@@ -228,6 +257,8 @@ async def handle_spotify_callback(code: str) -> list[TextContent]:
     except Exception as e:
         error_details = str(e)
         print(f"❌ Unexpected error: {error_details}")
+        import traceback
+        traceback.print_exc()
         return [TextContent(
             type="text", 
             text=f"❌ Authentication failed: {error_details}\n"
@@ -281,6 +312,8 @@ async def generate_spotify_playlist(
     global client, token, playlist_generator
     
     try:
+        print(f"🎵 Starting playlist generation: {playlist_name}")
+        
         # Validate inputs
         if not prompt or not prompt.strip():
             return [TextContent(
@@ -294,19 +327,34 @@ async def generate_spotify_playlist(
                 text="❌ Duration must be between 1 and 600 minutes."
             )]
         
-        if not client or not playlist_generator:
+        # Check authentication state
+        print(f"   - Token exists: {token is not None}")
+        print(f"   - Token has access_token: {token and token.access_token is not None}")
+        print(f"   - Client exists: {client is not None}")
+        print(f"   - Playlist generator exists: {playlist_generator is not None}")
+        
+        if not token or not token.access_token:
             # Try to provide authentication instructions
             auth_instructions = await authenticate_spotify()
             return [TextContent(
                 type="text", 
-                text="❌ Please authenticate with Spotify first.\n\n" + auth_instructions[0].text
+                text="❌ No valid authentication token. Please authenticate with Spotify first.\n\n" + auth_instructions[0].text
+            )]
+        
+        if not client or not playlist_generator:
+            return [TextContent(
+                type="text", 
+                text="❌ Client or playlist generator not initialized. Please re-authenticate."
             )]
 
         # Refresh token if needed
         if token and token.is_expiring and token.refresh_token and cred is not None:
             try:
                 print("🔄 Refreshing token...")
+                old_token = token.access_token[:20] if token.access_token else "None"
                 token = cred.refresh_user_token(token.refresh_token)
+                new_token = token.access_token[:20] if token.access_token else "None"
+                print(f"   - Token refreshed: {old_token}... → {new_token}...")
                 client = tk.Spotify(token)
                 playlist_generator.client = client
             except Exception as refresh_error:
@@ -317,11 +365,12 @@ async def generate_spotify_playlist(
                 )]
 
         # Analyze prompt
+        print("   - Analyzing prompt...")
         analysis_result = await analyze_prompt(prompt)
 
         # Create playlist with better error handling
         try:
-            print(f"🎵 Creating playlist: {playlist_name}")
+            print(f"   - Creating playlist with {duration_minutes} min target...")
             playlist_url = await playlist_generator.create_playlist(
                 analysis_result=analysis_result,
                 duration_minutes=duration_minutes,
@@ -332,6 +381,7 @@ async def generate_spotify_playlist(
             sentiment_data = analysis_result.get('sentiment', {'neutral': 1.0})
             dominant_sentiment = max(sentiment_data.items(), key=lambda x: x[1])[0]
             
+            print(f"✅ Playlist created successfully: {playlist_url}")
             return [TextContent(
                 type="text",
                 text=f"""✅ **Successfully created playlist: '{playlist_name}'**
@@ -350,14 +400,35 @@ async def generate_spotify_playlist(
         except tk.HTTPError as http_error:
             error_details = str(http_error)
             print(f"❌ HTTP error creating playlist: {error_details}")
-            return [TextContent(
-                type="text",
-                text=f"❌ Spotify API error: {error_details}\n"
-                     f"💡 This might be due to rate limiting or insufficient permissions. Please try again in a moment."
-            )]
+            
+            # Check for specific 401 error
+            if "401" in error_details or "No token provided" in error_details:
+                return [TextContent(
+                    type="text",
+                    text=f"""❌ **TOKEN ERROR: {error_details}**
+                    
+🔑 **Token status:** {token.access_token[:20] if token and token.access_token else 'None'}...
+
+**This suggests the token is not being sent with API requests.**
+
+**Solutions:**
+1. Re-authenticate completely (get fresh token)
+2. Check if token expired
+3. Verify client has token attached
+
+**Try re-authenticating and then generating the playlist again.**"""
+                )]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"❌ Spotify API error: {error_details}\n"
+                         f"💡 This might be due to rate limiting or insufficient permissions. Please try again in a moment."
+                )]
         except Exception as playlist_error:
             error_details = str(playlist_error)
             print(f"❌ Playlist creation error: {error_details}")
+            import traceback
+            traceback.print_exc()
             return [TextContent(
                 type="text",
                 text=f"❌ Error creating playlist: {error_details}\n"
@@ -367,6 +438,8 @@ async def generate_spotify_playlist(
     except Exception as e:
         error_details = str(e)
         print(f"❌ Generate playlist error: {error_details}")
+        import traceback
+        traceback.print_exc()
         return [TextContent(
             type="text", 
             text=f"❌ Unexpected error: {error_details}\n"
@@ -386,6 +459,8 @@ async def list_available_tools() -> list[TextContent]:
 5. **generate_playlist** - Create playlists based on text prompts (requires authentication)
 6. **debug_status** - Show detailed server status and configuration
 7. **list_tools** - Show this help information
+8. **test_auth_url** - Test authentication URL generation with debug info
+9. **debug_token** - Debug current token state
 
 📋 **Typical Usage Flow:**
 1. Run `debug_status` to check server status
@@ -398,13 +473,10 @@ async def list_available_tools() -> list[TextContent]:
 
 💡 **All tools return structured responses and handle errors gracefully.**
 
-🔧 **Recent Fixes:**
-- ✅ Simplified authentication flow (no callback server needed)
-- ✅ Fixed Spotify API parameter issues 
-- ✅ Improved error handling for audio features requests
-- ✅ Added language-based market filtering
-- ✅ Better fallback mechanisms for recommendations
-- ✅ Enhanced null/empty value checking throughout
+🔧 **Debug Tools:**
+- Use `test_auth_url` if authenticate isn't showing the URL
+- Use `debug_token` to check token state
+- Use `debug_status` for full system status
     """
     return [TextContent(type="text", text=tools_info.strip())]
 
@@ -445,6 +517,7 @@ async def debug_server_status() -> list[TextContent]:
 {f'- Expires: {token.expires_at}' if token else '- No token available'}
 {f'- Is Expiring: {token.is_expiring}' if token else ''}
 {f'- Has Refresh Token: {"Yes" if token and token.refresh_token else "No"}' if token else ''}
+{f'- Access Token Preview: {token.access_token[:20] if token and token.access_token else "None"}...' if token else ''}
 
 **Architecture Notes:**
 - ✅ Simplified design - no separate callback server needed
@@ -454,6 +527,97 @@ async def debug_server_status() -> list[TextContent]:
 """
     
     return [TextContent(type="text", text=status_info.strip())]
+
+
+async def debug_token_state() -> list[TextContent]:
+    """Debug current token state."""
+    global token, client, playlist_generator
+    
+    debug_info = []
+    debug_info.append("🔍 **TOKEN DEBUG INFO**\n")
+    
+    # Check token existence
+    if token is None:
+        debug_info.append("❌ **Token is None** - Need to authenticate")
+    else:
+        debug_info.append(f"✅ **Token exists**")
+        debug_info.append(f"   - Type: {type(token)}")
+        debug_info.append(f"   - Expires at: {token.expires_at}")
+        debug_info.append(f"   - Is expiring: {token.is_expiring}")
+        debug_info.append(f"   - Has refresh token: {token.refresh_token is not None}")
+        debug_info.append(f"   - Access token preview: {str(token.access_token)[:20]}..." if token.access_token else "   - ❌ No access token!")
+    
+    # Check client
+    if client is None:
+        debug_info.append("❌ **Client is None**")
+    else:
+        debug_info.append(f"✅ **Client exists**: {type(client)}")
+        debug_info.append(f"   - Client token: {hasattr(client, 'token') and client.token is not None}")
+    
+    # Check playlist generator
+    if playlist_generator is None:
+        debug_info.append("❌ **Playlist generator is None**")
+    else:
+        debug_info.append(f"✅ **Playlist generator exists**")
+        debug_info.append(f"   - Has client: {playlist_generator.client is not None}")
+    
+    return [TextContent(type="text", text="\n".join(debug_info))]
+
+
+async def test_auth_url() -> list[TextContent]:
+    """Test authentication URL generation with detailed logging."""
+    try:
+        print("🧪 Testing authentication URL generation...")
+        
+        # Force initialize credentials
+        result = initialize_credentials()
+        
+        if not result:
+            return [TextContent(type="text", text="❌ Failed to initialize credentials")]
+        
+        if cred is None:
+            return [TextContent(type="text", text="❌ Credentials still None after initialization")]
+        
+        print(f"✅ Credentials exist:")
+        print(f"   - Client ID: {cred.client_id[:10]}..." if cred.client_id else "   - No Client ID")
+        print(f"   - Client Secret: {'Set' if cred.client_secret else 'Not set'}")
+        print(f"   - Redirect URI: {cred.redirect_uri}")
+        
+        # Check scope
+        if scope is None:
+            return [TextContent(type="text", text="❌ Scope not initialized")]
+        
+        print(f"✅ Scope configured: {len(str(scope))} characters")
+        
+        # Generate URL
+        auth_url = cred.user_authorisation_url(scope=scope)
+        print(f"✅ Generated URL: {auth_url}")
+        
+        return [TextContent(
+            type="text", 
+            text=f"""🧪 **AUTH URL TEST RESULTS**
+
+**Status:** ✅ Success
+
+**Generated URL:**
+{auth_url}
+
+**Components:**
+- Client ID: {cred.client_id[:10]}...
+- Redirect URI: {cred.redirect_uri}
+- Scope Length: {len(str(scope))} chars
+
+**👆 Click the URL above to authenticate!**"""
+        )]
+        
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return [TextContent(
+            type="text", 
+            text=f"❌ Auth URL test failed: {str(e)}\n\nCheck server logs for detailed error."
+        )]
 
 
 def setup_mcp_server() -> FastMCP:
@@ -474,7 +638,12 @@ def setup_mcp_server() -> FastMCP:
     @server.tool("authenticate")
     async def authenticate_tool() -> list[TextContent]:
         """Generate authentication URL for Spotify."""
-        return await authenticate_spotify()
+        print("🔄 Authenticate tool called")
+        result = await authenticate_spotify()
+        print(f"📤 Authenticate tool returning: {len(result)} items")
+        if result:
+            print(f"   First item preview: {result[0].text[:100]}...")
+        return result
     
     @server.tool("handle_callback")
     async def callback_tool(code: str) -> list[TextContent]:
@@ -499,6 +668,16 @@ def setup_mcp_server() -> FastMCP:
     async def tools_list() -> list[TextContent]:
         """List all available tools and their descriptions.""" 
         return await list_available_tools()
+    
+    @server.tool("test_auth_url")
+    async def test_auth_url_tool() -> list[TextContent]:
+        """Test authentication URL generation with detailed logging."""
+        return await test_auth_url()
+    
+    @server.tool("debug_token")
+    async def debug_token_tool() -> list[TextContent]:
+        """Debug current token state."""
+        return await debug_token_state()
     
     return server
 
@@ -525,7 +704,7 @@ async def run_server() -> None:
             print(f"💡 Users will manually copy authorization codes from redirect URLs")
         
         # Log registered components
-        print(f"🛠️ Registered MCP tools: health, validate, authenticate, handle_callback, generate_playlist, debug_status, list_tools")
+        print(f"🛠️ Registered MCP tools: health, validate, authenticate, handle_callback, generate_playlist, debug_status, list_tools, test_auth_url, debug_token")
         print(f"✅ Server ready for connections!")
         
         await server.run_async("streamable-http", host="0.0.0.0", port=port)
