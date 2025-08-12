@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 import tekore as tk
 from fastmcp import FastMCP
 from mcp.types import TextContent
+from urllib.parse import urlparse, parse_qs
 
 from playlist_generator import PlaylistGenerator
 from sentiment_analyzer import SentimentAnalyzer
@@ -20,6 +21,7 @@ sentiment_analyzer = SentimentAnalyzer()
 cred: Optional[tk.Credentials] = None
 scope: Optional[tk.Scope] = None
 port = int(os.getenv("PORT", 10000))
+last_auth_code = None  # Store the last received auth code
 
 
 def initialize_credentials():
@@ -678,6 +680,103 @@ def setup_mcp_server() -> FastMCP:
     async def debug_token_tool() -> list[TextContent]:
         """Debug current token state."""
         return await debug_token_state()
+    
+    @server.tool("get_auth_url")
+    async def get_auth_url_tool() -> list[TextContent]:
+        """Simple backup auth URL generator."""
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        
+        if not client_id:
+            return [TextContent(type="text", text="❌ SPOTIFY_CLIENT_ID not set")]
+        
+        redirect_uri = f"http://127.0.0.1:{port}/callback"
+        scopes = "playlist-modify-public playlist-modify-private user-read-recently-played user-top-read user-library-read user-read-private"
+        
+        url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&scope={scopes.replace(' ', '%20')}"
+        
+        return [TextContent(
+            type="text",
+            text=f"""🎵 **SPOTIFY AUTHENTICATION URL**
+
+{url}
+
+**Instructions:**
+1. Click the URL above
+2. Authorize the app
+3. Copy the 'code' from the redirect URL
+4. Use handle_callback with that code"""
+        )]
+    
+    @server.tool("show_url")
+    async def show_url_tool() -> list[TextContent]:
+        """Show raw authentication URL."""
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        if not client_id:
+            return [TextContent(type="text", text="❌ No client ID")]
+        
+        url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&redirect_uri=http://127.0.0.1:{port}/callback&scope=playlist-modify-public%20playlist-modify-private%20user-read-recently-played%20user-top-read%20user-library-read%20user-read-private"
+        
+        return [TextContent(type="text", text=url)]
+    
+    @server.tool("auto_auth")
+    async def auto_auth_tool() -> list[TextContent]:
+        """Complete authentication flow automatically."""
+        global last_auth_code
+        
+        # Step 1: Generate auth URL
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        if not client_id:
+            return [TextContent(type="text", text="❌ No client ID")]
+        
+        url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&redirect_uri=http://127.0.0.1:{port}/callback&scope=playlist-modify-public%20playlist-modify-private%20user-read-recently-played%20user-top-read%20user-library-read%20user-read-private"
+        
+        return [TextContent(
+            type="text",
+            text=f"""🔄 **AUTOMATIC AUTHENTICATION**
+
+**Step 1:** Click this URL to authorize:
+{url}
+
+**Step 2:** After authorizing, you'll see an error page
+**Step 3:** Copy the ENTIRE URL from your browser and use 'process_callback_url' tool
+
+**Or manually copy just the code part and use 'handle_callback'**
+
+**The URL will look like:**
+http://127.0.0.1:{port}/callback?code=LONG_CODE_HERE&state=...
+
+**Just copy everything after 'code=' and before '&' (or end of URL)**"""
+        )]
+    
+    @server.tool("process_callback_url")
+    async def process_callback_url_tool(full_url: str) -> list[TextContent]:
+        """Process the full callback URL to extract and use the code."""
+        try:
+            # Parse the URL
+            parsed = urlparse(full_url)
+            query_params = parse_qs(parsed.query)
+            
+            if 'code' not in query_params:
+                return [TextContent(
+                    type="text",
+                    text="❌ No 'code' parameter found in URL. Please copy the complete redirect URL."
+                )]
+            
+            code = query_params['code'][0]
+            
+            # Automatically handle the callback
+            result = await handle_spotify_callback(code)
+            
+            return [TextContent(
+                type="text",
+                text=f"✅ **Extracted code and processed automatically!**\n\n{result[0].text}"
+            )]
+            
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error processing URL: {str(e)}\n\nPlease copy just the code part manually and use 'handle_callback'"
+            )]
     
     return server
 
