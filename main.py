@@ -3,6 +3,7 @@ import os
 import logging
 from typing import List
 from fastmcp import FastMCP
+from typing import Optional
 from dotenv import load_dotenv
 from mcp.types import TextContent
 from spotify_handler import SpotifyHandler
@@ -185,6 +186,13 @@ def setup_mcp_server() -> FastMCP:
         duration_minutes: int = 60,
         playlist_name: str = "AI Generated Playlist"
     ) -> List[TextContent]:
+        if not spotify_handler or not spotify_handler.is_authenticated():
+            # Always return the authentication link if not logged in
+            if not spotify_handler and not initialize_services():
+                return [TextContent(type="text", text="Failed to initialize Spotify. Check env vars.")]
+            auth_url = spotify_handler.get_auth_url() if spotify_handler else None
+            return [TextContent(type="text", text=f"Please authenticate here:\n{auth_url}")]
+
         await authenticate_spotify()
         await fetch_user_data()
         return await generate_spotify_playlist(prompt, duration_minutes, playlist_name)
