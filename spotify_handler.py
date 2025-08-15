@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
 from typing import Optional, List, Dict, Any
 import tekore as tk
 
@@ -11,6 +12,8 @@ class SpotifyHandler:
     """Simplified Spotify handler using Tekore."""
     
     def __init__(self):
+        """Initialize Spotify handler with environment variables."""
+        load_dotenv()
         self.client_id = os.getenv("SPOTIFY_CLIENT_ID")
         self.client_secret = os.getenv("SPOTIFY_CLIENT_SECRET") 
         
@@ -18,7 +21,7 @@ class SpotifyHandler:
             raise ValueError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set")
         
         port = int(os.getenv("PORT", 10000))
-        self.redirect_uri = f"http://localhost:{port}/callback"
+        self.redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", f"http://localhost:{port}/spotify/callback")
         
         self.cred = tk.Credentials(
             client_id=self.client_id,

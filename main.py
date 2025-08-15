@@ -3,6 +3,7 @@ import os
 import logging
 from typing import List
 from fastmcp import FastMCP
+from dotenv import load_dotenv
 from mcp.types import TextContent
 from spotify_handler import SpotifyHandler
 from playlist_generator import PlaylistGenerator
@@ -10,7 +11,7 @@ from playlist_generator import PlaylistGenerator
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+load_dotenv()
 # Global variables
 spotify_handler = None
 playlist_generator = None
@@ -33,7 +34,7 @@ async def health_check() -> List[TextContent]:
     """Health check endpoint."""
     return [TextContent(
         type="text", 
-        text=f"âœ… MCP Server is healthy and running on port {port}"
+        text=f"MCP Server is healthy and running on port {port}"
     )]
 
 async def validate_config() -> str:
@@ -47,14 +48,14 @@ async def authenticate_spotify() -> List[TextContent]:
             if not initialize_services():
                 return [TextContent(
                     type="text",
-                    text="âŒ Failed to initialize Spotify. Check environment variables."
+                    text="Failed to initialize Spotify. Check environment variables."
                 )]
         
         if spotify_handler:
             auth_url = spotify_handler.get_auth_url()
             return [TextContent(
                 type="text", 
-                text=f"""ðŸ”— **SPOTIFY AUTHENTICATION**
+                text=f"""**SPOTIFY AUTHENTICATION**
 
 Click this link to authorize the app:
 {auth_url}
@@ -64,13 +65,13 @@ After authorization, the app will be ready to use!"""
         else:
             return [TextContent(
                 type="text",
-                text="âŒ Spotify handler not available"
+                text="Spotify handler not available"
             )]
     except Exception as e:
         logger.error(f"Authentication error: {e}")
         return [TextContent(
             type="text", 
-            text=f"âŒ Authentication error: {str(e)}"
+            text=f"Authentication error: {str(e)}"
         )]
 
 async def fetch_user_data() -> List[TextContent]:
@@ -79,20 +80,20 @@ async def fetch_user_data() -> List[TextContent]:
         if not spotify_handler or not spotify_handler.is_authenticated():
             return [TextContent(
                 type="text",
-                text="âŒ Please authenticate with Spotify first using the 'authenticate' tool."
+                text="Please authenticate with Spotify first using the 'authenticate' tool."
             )]
 
         user_data = await spotify_handler.fetch_all_user_data()
         
-        summary = f"""âœ… **Spotify Data Fetched Successfully!**
+        summary = f"""**Spotify Data Fetched Successfully!**
 
-ðŸ“Š **Data Summary:**
+**Data Summary:**
 - User: {user_data.get('user_profile', {}).get('display_name', 'Unknown')}
 - Top Tracks: {len(user_data.get('top_tracks', []))}
 - Recent Tracks: {len(user_data.get('recent_tracks', []))}
 - Playlists: {len(user_data.get('playlists', []))}
 
-ðŸŽµ **You can now generate playlists using the 'generate_playlist' tool!**"""
+**You can now generate playlists using the 'generate_playlist' tool!**"""
 
         return [TextContent(type="text", text=summary)]
 
@@ -100,7 +101,7 @@ async def fetch_user_data() -> List[TextContent]:
         logger.error(f"Error fetching user data: {e}")
         return [TextContent(
             type="text",
-            text=f"âŒ Error fetching user data: {str(e)}"
+            text=f"Error fetching user data: {str(e)}"
         )]
 
 async def generate_spotify_playlist(
@@ -113,25 +114,25 @@ async def generate_spotify_playlist(
         if not spotify_handler or not spotify_handler.is_authenticated():
             return [TextContent(
                 type="text",
-                text="âŒ Please authenticate with Spotify first using the 'authenticate' tool."
+                text="Please authenticate with Spotify first using the 'authenticate' tool."
             )]
 
         if not prompt.strip():
             return [TextContent(
                 type="text", 
-                text="âŒ Please provide a prompt for the playlist."
+                text="Please provide a prompt for the playlist."
             )]
 
         if duration_minutes <= 0 or duration_minutes > 300:
             return [TextContent(
                 type="text", 
-                text="âŒ Duration must be between 1 and 300 minutes."
+                text="Duration must be between 1 and 300 minutes."
             )]
 
         if not playlist_generator:
             return [TextContent(
                 type="text",
-                text="âŒ Playlist generator not available."
+                text="Playlist generator not available."
             )]
 
         playlist_url = await playlist_generator.create_playlist(
@@ -142,11 +143,11 @@ async def generate_spotify_playlist(
 
         return [TextContent(
             type="text",
-            text=f"""âœ… **Successfully created playlist: '{playlist_name}'**
+            text=f"""**Successfully created playlist: '{playlist_name}'**
 
-ðŸŽµ **Spotify URL:** {playlist_url}
-â±ï¸ **Duration:** {duration_minutes} minutes
-ðŸŽ¯ **Prompt:** "{prompt}"
+**Spotify URL:** {playlist_url}
+**Duration:** {duration_minutes} minutes
+**Prompt:** "{prompt}"
 
 ðŸŽ‰ **Your playlist is ready!** Open the Spotify URL to listen."""
         )]
@@ -155,7 +156,7 @@ async def generate_spotify_playlist(
         logger.error(f"Playlist generation error: {e}")
         return [TextContent(
             type="text", 
-            text=f"âŒ Error creating playlist: {str(e)}"
+            text=f"Error creating playlist: {str(e)}"
         )]
 
 def setup_mcp_server() -> FastMCP:

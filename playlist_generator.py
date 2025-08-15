@@ -4,6 +4,7 @@ import random
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
+from dotenv import load_dotenv
 from spotify_handler import SpotifyHandler
 import google.generativeai as genai
 from google.generativeai.generative_models import GenerativeModel
@@ -13,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 class PlaylistGenerator:
     """Playlist generator using Gemini AI for recommendations."""
-    
+        
     def __init__(self, spotify_handler: SpotifyHandler):
+        load_dotenv()
         self.spotify = spotify_handler
         self.model = None
         
