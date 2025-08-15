@@ -16,6 +16,9 @@ logging.basicConfig(
     format=f"[%(asctime)s] [{SERVICE_NAME}.%(name)s:%(lineno)d] %(levelname)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
+logging.getLogger("tekore").setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.DEBUG)
+
 logger = logging.getLogger(__name__)
 load_dotenv()
 
