@@ -62,20 +62,19 @@ async def authenticate_spotify() -> List[TextContent]:
                 )]
         
         if spotify_handler:
-            auth_url = spotify_handler.get_auth_url()
             return [TextContent(
                 type="text", 
                 text=f"""**SPOTIFY AUTHENTICATION REQUIRED**
 
-Click this link to authorize the app:
-{auth_url}
+                Click this link to authorize the app:
+                {spotify_handler.get_auth_url()}
 
-After authorization, you'll be redirected back. Then use the 'complete_auth' tool with the authorization code from the URL.
+                After authorization, you'll be redirected back. Then use the 'complete_auth' tool with the authorization code from the URL.
 
-The authorization code will be in the URL after 'code='. For example:
-http://127.0.0.1:10000/spotify/callback?code=YOUR_CODE_HERE
+                The authorization code will be in the URL after 'code='. For example:
+                http://127.0.0.1:10000/spotify/callback?code=YOUR_CODE_HERE
 
-Copy the YOUR_CODE_HERE part and use it with the 'complete_auth' tool."""
+                Copy the YOUR_CODE_HERE part and use it with the 'complete_auth' tool."""
             )]
         else:
             return [TextContent(
@@ -128,13 +127,13 @@ async def fetch_user_data() -> List[TextContent]:
         
         summary = f"""**Spotify Data Fetched Successfully!**
 
-**Data Summary:**
-- User: {user_data.get('user_profile', {}).get('display_name', 'Unknown')}
-- Top Tracks: {len(user_data.get('top_tracks', []))}
-- Recent Tracks: {len(user_data.get('recent_tracks', []))}
-- Playlists: {len(user_data.get('playlists', []))}
+        **Data Summary:**
+        - User: {user_data.get('user_profile', {}).get('display_name', 'Unknown')}
+        - Top Tracks: {len(user_data.get('top_tracks', []))}
+        - Recent Tracks: {len(user_data.get('recent_tracks', []))}
+        - Playlists: {len(user_data.get('playlists', []))}
 
-**You can now generate playlists using the 'generate_playlist' tool!**"""
+        **You can now generate playlists using the 'generate_playlist' tool!**"""
 
         return [TextContent(type="text", text=summary)]
 
@@ -199,12 +198,12 @@ async def generate_spotify_playlist(
             type="text",
             text=f"""✅ **Successfully created playlist: '{playlist_name}'**
 
-🎵 **Spotify URL:** {playlist_url}
-⏱️ **Duration:** {duration_minutes} minutes
-💭 **Prompt:** "{prompt}"
+            🎵 **Spotify URL:** {playlist_url}
+            ⏱️ **Duration:** {duration_minutes} minutes
+            💭 **Prompt:** "{prompt}"
 
-🎉 **Your playlist is ready!** Click the Spotify URL to listen."""
-        )]
+            🎉 **Your playlist is ready!** Click the Spotify URL to listen."""
+                    )]
 
     except Exception as e:
         logger.error(f"Playlist generation error: {e}")

@@ -240,31 +240,81 @@ class SpotifyHandler:
             if not self.client:
                 return []
             
-            # Filter valid track IDs
-            valid_seeds = [track_id for track_id in seed_track_ids if track_id][:5]  # Max 5 seeds
+            # Filter valid track IDs and limit to max 5 seeds
+            valid_seeds = [track_id for track_id in seed_track_ids if track_id and len(track_id) == 22][:5]
             if not valid_seeds:
                 logger.warning("No valid seed tracks for recommendations")
                 return []
             
-            logger.info(f"Getting recommendations with {len(valid_seeds)} seed tracks")
-            recommendations = self.client.recommendations(
-                track_ids=valid_seeds,
-                limit=limit
-            )
+            logger.info(f"Getting recommendations with {len(valid_seeds)} seed tracks: {valid_seeds}")
             
-            rec_list = [
-                {
-                    "name": track.name,
-                    "artist": ", ".join([artist.name for artist in track.artists]),
-                    "album": track.album.name,
-                    "id": track.id,
-                    "uri": track.uri,
-                    "popularity": track.popularity
-                }
-                for track in recommendations.tracks
-            ]
-            logger.info(f"Got {len(rec_list)} recommendations")
-            return rec_list
+            # Validate track IDs by checking if they exist first
+            validated_seeds = []
+            for track_id in valid_seeds:
+                try:
+                    track = self.client.track(track_id)
+                    if track:
+                        validated_seeds.append(track_id)
+                        logger.debug(f"Validated track ID: {track_id}")
+                except Exception as e:
+                    logger.warning(f"Invalid track ID {track_id}: {e}")
+                    continue
+            
+            if not validated_seeds:
+                logger.warning("No valid track IDs after validation")
+                return []
+            
+            # Make the recommendations request with validated IDs
+            try:
+                recommendations = self.client.recommendations(
+                    track_ids=validated_seeds,
+                    limit=limit
+                )
+                
+                rec_list = [
+                    {
+                        "name": track.name,
+                        "artist": ", ".join([artist.name for artist in track.artists]),
+                        "album": track.album.name,
+                        "id": track.id,
+                        "uri": track.uri,
+                        "popularity": track.popularity
+                    }
+                    for track in recommendations.tracks
+                ]
+                logger.info(f"Got {len(rec_list)} recommendations")
+                return rec_list
+                
+            except Exception as e:
+                logger.error(f"Recommendations API call failed: {e}")
+                # Try with fewer seeds if the request failed
+                if len(validated_seeds) > 1:
+                    logger.info("Retrying with fewer seed tracks...")
+                    try:
+                        recommendations = self.client.recommendations(
+                            track_ids=validated_seeds[:2],  # Try with just 2 seeds
+                            limit=limit
+                        )
+                        
+                        rec_list = [
+                            {
+                                "name": track.name,
+                                "artist": ", ".join([artist.name for artist in track.artists]),
+                                "album": track.album.name,
+                                "id": track.id,
+                                "uri": track.uri,
+                                "popularity": track.popularity
+                            }
+                            for track in recommendations.tracks
+                        ]
+                        logger.info(f"Got {len(rec_list)} recommendations with fewer seeds")
+                        return rec_list
+                    except Exception as e2:
+                        logger.error(f"Retry also failed: {e2}")
+                        return []
+                else:
+                    return []
+                    
         except Exception as e:
             logger.error(f"Recommendations failed: {e}")
             return []

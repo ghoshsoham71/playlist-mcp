@@ -76,15 +76,20 @@ class PlaylistGenerator:
         if self.spotify.is_authenticated() and all_tracks:
             try:
                 # Use some found tracks as seeds for recommendations
-                seed_ids = [track["id"] for track in all_tracks[:5] if track.get("id")]
+                seed_ids = [track["id"] for track in all_tracks[:5] if track.get("id") and len(track["id"]) == 22]
                 if seed_ids:
+                    logger.info(f"Attempting recommendations with seeds: {seed_ids}")
                     rec_tracks = self.spotify.get_recommendations(seed_ids, limit=20)
                     if rec_tracks:
                         all_tracks.extend(rec_tracks)
                         logger.info(f"Added {len(rec_tracks)} recommended tracks")
+                    else:
+                        logger.warning("No recommendations returned, continuing with search results only")
+                else:
+                    logger.warning("No valid seed track IDs for recommendations")
             except Exception as e:
-                logger.warning(f"Failed to get recommendations: {e}")
-        
+                logger.warning(f"Failed to get recommendations: {e}. Continuing with search results only.")
+            
         # Step 5: Remove duplicates
         unique_tracks = self._remove_duplicates(all_tracks)
         logger.info(f"Unique tracks after deduplication: {len(unique_tracks)}")
