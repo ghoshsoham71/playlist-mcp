@@ -1,186 +1,286 @@
-# Spotify MCP Playlist Generator
+# 🎵 Spotify AI Playlist Generator
 
-A Model Context Protocol (MCP) server that generates Spotify playlists based on sentiment analysis of user prompts. Designed to work with WhatsApp bots and other messaging platforms.
+An intelligent MCP (Model Context Protocol) server that generates personalized Spotify playlists using AI. This project combines the power of Google's Gemini AI with Spotify's extensive music catalog to create curated playlists based on natural language prompts.
 
-## Features
+## ✨ Features
 
-- 🎵 **Smart Playlist Generation**: Creates playlists using 30% user history + 70% Spotify recommendations
-- 🧠 **Sentiment Analysis**: Uses HuggingFace models to analyze text and emoji sentiment
-- 🌍 **Multi-language Support**: Detects language and adapts recommendations
-- ⏱️ **Duration Control**: Parses duration from natural language ("45 minutes", "2 hours")
-- 🔐 **OAuth Integration**: Secure Spotify authentication
-- 📱 **WhatsApp Ready**: Designed for messaging bot integration
+- **AI-Powered Curation**: Uses Google Gemini to generate intelligent search queries and curate track selections
+- **Spotify Integration**: Full integration with Spotify's API for authentication, search, and playlist creation
+- **Personalized Recommendations**: Analyzes user's listening history for better recommendations
+- **Natural Language Processing**: Create playlists using simple prompts like "upbeat workout music" or "chill sunday morning vibes"
+- **Flexible Duration**: Specify playlist length from 1 to 300 minutes
+- **MCP Server**: Runs as a Model Context Protocol server for easy integration with AI assistants
+- **Health Monitoring**: Built-in health checks and logging
 
-## Installation
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8+
+- Spotify Premium account (recommended)
+- Spotify Developer App credentials
+- Google Gemini API key
+
+### Installation
 
 1. **Clone the repository**
-```bash
-git clone <your-repo>
-cd spotify-mcp
-```
+   ```bash
+   git clone <your-repo-url>
+   cd spotify-playlist-generator
+   ```
 
 2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your credentials
+   ```
+
+4. **Run the server**
+   ```bash
+   python main.py
+   ```
+
+The server will start on `http://localhost:10000` by default.
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```env
+# Spotify API Credentials
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+
+# Google Gemini API Key
+GEMINI_API_KEY=your_gemini_api_key
+
+# Server Configuration
+PORT=10000
+
+# Optional: Your phone number for validation
+MY_NUMBER=+1234567890
+```
+
+### Spotify Developer Setup
+
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Note your Client ID and Client Secret
+4. Add redirect URI: `http://localhost:10000/callback`
+5. Add the required scopes (handled automatically by the app)
+
+### Google Gemini API Setup
+
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add the key to your `.env` file
+
+## 📖 Usage
+
+### 1. Health Check
 ```bash
-pip install -r requirements.txt
+curl http://localhost:10000/health
 ```
 
-3. **Set up Spotify App**
-   - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-   - Create a new app
-   - Note your Client ID and Client Secret
-   - Set redirect URI to `http://localhost:8080/callback`
+### 2. Authenticate with Spotify
+The server will provide an authentication URL. Visit it to authorize the application.
 
-4. **Configure environment variables**
-```bash
-export SPOTIFY_CLIENT_ID="your_client_id"
-export SPOTIFY_CLIENT_SECRET="your_client_secret"
-export SPOTIFY_REDIRECT_URI="http://localhost:8080/callback"
-```
+### 3. Fetch User Data
+After authentication, fetch your Spotify listening history for personalized recommendations.
 
-## Usage
+### 4. Generate Playlists
+Create playlists using natural language prompts:
 
-### Basic MCP Server
+- "Energetic workout music for 45 minutes"
+- "Chill indie songs for studying"
+- "90s rock hits for a road trip"
+- "Emotional ballads for a rainy day"
 
-```python
-from main import SpotifyMCPServer
-import asyncio
+## 🛠️ API Endpoints
 
-async def main():
-    server = SpotifyMCPServer()
-    await server.run()
+### MCP Tools
 
-asyncio.run(main())
-```
+The server exposes the following MCP tools:
 
-### Tool Usage
+- **`health`**: Check server health status
+- **`validate`**: Validate configuration
+- **`authenticate`**: Get Spotify authentication URL
+- **`fetch_data`**: Fetch and store user's Spotify data
+- **`generate_playlist`**: Generate AI-curated playlist
 
-The server exposes one main tool: `generate_playlist`
+### Generate Playlist Parameters
 
-```python
-# Example tool call
-result = await mcp_client.call_tool(
-    "generate_playlist",
-    {
-        "prompt": "Happy workout music with some rock 🎸💪",
-        "duration_minutes": 45,
-        "playlist_name": "Gym Motivation"
-    }
-)
-```
-
-### WhatsApp Integration Example
-
-```
-User: "Create me a chill playlist for studying 📚"
-Bot: "Let me analyze your request..."
-Bot: "✅ Created playlist: Study Focus
-      🎵 URL: https://open.spotify.com/playlist/xyz
-      📊 30% from your history, 70% new recommendations"
-```
-
-## How It Works
-
-### 1. Sentiment Analysis
-- Analyzes text using lightweight HuggingFace models
-- Processes emojis separately for emotional context
-- Maps emotions to Spotify audio features (valence, energy, danceability)
-
-### 2. Playlist Generation
-- **30% User History**: Pulls from user's top tracks and recent listening
-- **70% Recommendations**: Uses Spotify's recommendation API with sentiment-based parameters
-- Filters and combines tracks to create one consolidated playlist
-
-### 3. Audio Features Mapping
-```python
-sentiment_mapping = {
-    "joy": {"valence": 0.8, "energy": 0.7, "danceability": 0.8},
-    "sadness": {"valence": 0.2, "energy": 0.3, "danceability": 0.4},
-    "anger": {"valence": 0.3, "energy": 0.9, "danceability": 0.6},
-    # ... more mappings
+```json
+{
+  "prompt": "string (required) - Description of desired playlist",
+  "duration_minutes": "integer (optional, default: 60) - Playlist length",
+  "playlist_name": "string (optional, default: 'AI Generated Playlist') - Playlist name"
 }
 ```
 
-## API Reference
+## 🏗️ Architecture
 
-### generate_playlist
+### Components
 
-**Parameters:**
-- `prompt` (str): User's description of desired music
-- `duration_minutes` (int, default=60): Target playlist length
-- `playlist_name` (str, default="AI Generated Playlist"): Playlist name
+1. **Main Server (`main.py`)**: FastMCP server handling HTTP requests and routing
+2. **Spotify Handler (`spotify_handler.py`)**: Spotify API integration using Tekore
+3. **Playlist Generator (`playlist_generator.py`)**: AI-powered playlist curation using Gemini
 
-**Returns:**
-- Spotify playlist URL
-- Analysis breakdown
-- Success/error status
+### Data Flow
 
-## File Structure
+1. User provides natural language prompt
+2. Gemini AI generates relevant search queries
+3. Spotify API searches for matching tracks
+4. System fetches additional recommendations based on user history
+5. Gemini AI curates the final track selection
+6. Spotify playlist is created and populated
+
+### File Structure
 
 ```
-spotify-mcp/
-├── main.py                 # Main MCP server
-├── spotify_handler.py      # Spotify OAuth & API wrapper
-├── playlist_generator.py   # Core playlist creation logic
-├── sentiment_analyzer.py   # HuggingFace sentiment analysis
-├── utils.py               # Helper functions
-├── example_usage.py       # Usage examples
-├── requirements.txt       # Dependencies
-└── README.md             # This file
+├── main.py                 # MCP server and main entry point
+├── spotify_handler.py      # Spotify API integration
+├── playlist_generator.py   # AI playlist generation logic
+├── requirements.txt        # Python dependencies
+├── .env.example           # Environment variables template
+└── README.md              # This file
 ```
 
-## Authentication Flow
+## 📊 Data Storage
 
-1. User requests playlist creation
-2. If not authenticated, bot provides Spotify OAuth URL
-3. User authorizes and is redirected with code
-4. Server exchanges code for access token
-5. Token is cached for future requests
-6. User can now create playlists
+The application creates local JSON files for:
 
-## Example Prompts
+- **User Data**: `user_data_YYYYMMDD_HHMMSS.json` - Spotify listening history
+- **Playlist Data**: `playlist_YYYYMMDD_HHMMSS.json` - Generated playlist metadata
 
-- `"Happy workout music for 45 minutes 🏋️‍♂️"`
-- `"Sad songs for rainy day mood 😢🌧️"`
-- `"Party music, something energetic for tonight 🎉"`
-- `"Focus music for studying, instrumental preferred"`
-- `"Road trip classics, rock vibes for 2 hours"`
+These files are used to improve recommendations and provide playlist history.
 
-## Supported Emotions
+## 🔍 Logging
 
-- **Joy**: Upbeat, positive, energetic music
-- **Sadness**: Melancholic, slow, emotional tracks
-- **Anger**: Intense, aggressive, powerful music
-- **Fear**: Dark, mysterious, atmospheric sounds
-- **Surprise**: Experimental, unique, eclectic tracks
-- **Neutral**: Balanced, mainstream music
+The application provides comprehensive logging:
 
-## Error Handling
+- **INFO**: General application flow and successful operations
+- **WARNING**: Non-critical issues (e.g., fallback to simple mode)
+- **ERROR**: Critical errors and failures
 
-- Graceful fallbacks when Spotify API fails
-- Alternative search methods for recommendations
-- Comprehensive logging for debugging
-- User-friendly error messages
+Logs are output to console with timestamps and log levels.
 
-## Contributing
+## ⚙️ Fallback Modes
+
+### Without Gemini API
+If the Gemini API is unavailable, the system falls back to:
+- Simple keyword-based search query generation
+- Popularity-based track selection with randomization
+
+### Without User Authentication
+The system can still:
+- Search for tracks using Spotify's public API
+- Create playlists based on search results (with limited personalization)
+
+## 🚨 Error Handling
+
+The application includes robust error handling for:
+
+- **Authentication failures**: Clear error messages and retry mechanisms
+- **API rate limits**: Graceful degradation and retries
+- **Network issues**: Timeout handling and fallback options
+- **Invalid inputs**: Input validation and user-friendly error messages
+
+## 🔒 Privacy & Security
+
+- **No persistent storage**: User tokens are only kept in memory during the session
+- **Local data**: All user data is stored locally on your machine
+- **Minimal scopes**: Only requests necessary Spotify permissions
+- **Environment variables**: Sensitive credentials stored in environment variables
+
+## 📋 Requirements
+
+### Python Dependencies
+
+```
+fastmcp>=0.1.0
+tekore>=4.0.0
+google-generativeai>=0.3.0
+asyncio
+logging
+typing
+datetime
+json
+os
+random
+glob
+```
+
+### System Requirements
+
+- **Memory**: 512MB RAM minimum
+- **Storage**: 100MB for application and data files
+- **Network**: Stable internet connection for API calls
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Authentication Error**
+   - Check Spotify credentials in `.env`
+   - Verify redirect URI in Spotify app settings
+   - Ensure all required scopes are enabled
+
+2. **No Tracks Found**
+   - Try more specific or different prompts
+   - Check internet connection
+   - Verify Spotify API access
+
+3. **Gemini API Errors**
+   - Verify API key is correct
+   - Check API quota limits
+   - System will fallback to simple mode if needed
+
+4. **Port Already in Use**
+   - Change PORT in `.env` file
+   - Kill existing processes on the port
+
+### Debug Mode
+
+Enable debug logging by modifying the logging level in `main.py`:
+```python
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if needed
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📜 License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Troubleshooting
+## 🙏 Acknowledgments
 
-**Common Issues:**
+- [Spotify Web API](https://developer.spotify.com/documentation/web-api/) for music data and playlist management
+- [Google Gemini](https://ai.google.dev/) for AI-powered curation
+- [Tekore](https://tekore.readthedocs.io/) for elegant Spotify API integration
+- [FastMCP](https://github.com/jlowin/fastmcp) for MCP server implementation
 
-1. **Authentication Errors**: Check Spotify app credentials and redirect URI
-2. **Model Loading**: Ensure HuggingFace models download correctly
-3. **API Limits**: Spotify has rate limits - implement backoff if needed
-4. **Token Expiry**: Implement token refresh logic for production use
+## 📞 Support
 
-**Debug Mode:**
-Set environment variable `DEBUG=1` for verbose logging.
+For questions, issues, or feature requests:
+
+1. Check the [Issues](../../issues) page
+2. Create a new issue with detailed information
+3. Include logs and error messages when reporting bugs
+
+---
+
+**Made with ❤️ for music lovers and AI enthusiasts**

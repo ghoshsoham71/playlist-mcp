@@ -1,232 +1,338 @@
+import os
+import json
 import random
-from typing import Dict, List, Any, Optional, Union
-import tekore as tk
+import logging
+from typing import List, Dict, Any
+from datetime import datetime
+from spotify_handler import SpotifyHandler
+import google.generativeai as genai
+from google.generativeai.generative_models import GenerativeModel
+from google.generativeai.client import configure
 
+logger = logging.getLogger(__name__)
 
 class PlaylistGenerator:
-    """Generates Spotify playlists using Tekore client - Updated for deprecated API endpoints."""
+    """Playlist generator using Gemini AI for recommendations."""
     
-    def __init__(self, client: tk.Spotify):
-        self.client = client
+    def __init__(self, spotify_handler: SpotifyHandler):
+        self.spotify = spotify_handler
+        self.model = None
         
-        # Sentiment to search keywords mapping (since audio features API is deprecated)
-        self.sentiment_keywords = {
-            "joy": ["happy", "upbeat", "energetic", "dance", "party", "fun", "positive", "cheerful", "bright"],
-            "sadness": ["sad", "melancholy", "emotional", "ballad", "slow", "acoustic", "heartbreak", "blue"],
-            "anger": ["rock", "metal", "intense", "aggressive", "punk", "hard", "heavy", "angry"],
-            "fear": ["dark", "ambient", "electronic", "atmospheric", "mysterious", "haunting", "eerie"],
-            "surprise": ["experimental", "jazz", "unique", "world", "fusion", "alternative", "indie", "eclectic"],
-            "neutral": ["popular", "top", "hits", "trending", "mainstream", "classic", "best", "favorite"]
-        }
+        # Configure Gemini if available
+        if genai:
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if gemini_api_key:
+                try:
+                    configure(api_key=gemini_api_key)
+                    self.model = GenerativeModel('gemini-1.5-flash')
+                    logger.info("Playlist generator initialized with Gemini")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Gemini: {e}")
+                    self.model = None
+            else:
+                logger.warning("GEMINI_API_KEY not set, using fallback mode")
+                    
+    async def create_playlist(
+        self, 
+        prompt: str, 
+        duration_minutes: int, 
+        playlist_name: str
+    ) -> str:
+        """Create a playlist using Gemini AI recommendations."""
         
-        # Genre keywords for each sentiment
-        self.sentiment_genres = {
-            "joy": ["pop", "dance", "funk", "disco", "reggae", "latin"],
-            "sadness": ["blues", "folk", "acoustic", "indie", "alternative", "country"],
-            "anger": ["rock", "metal", "punk", "hardcore", "grunge", "industrial"],
-            "fear": ["ambient", "electronic", "darkwave", "gothic", "post-rock", "experimental"],
-            "surprise": ["jazz", "world", "fusion", "progressive", "avant-garde", "new age"],
-            "neutral": ["pop", "rock", "indie", "alternative", "classic rock", "soul"]
-        }
+        logger.info(f"Creating playlist: {playlist_name} - {prompt}")
         
-        # Language to market mapping for better recommendations
-        self.language_markets = {
-            'en': 'US', 'es': 'ES', 'fr': 'FR', 'de': 'DE', 'it': 'IT',
-            'pt': 'BR', 'nl': 'NL', 'ja': 'JP', 'ko': 'KR', 'zh': 'CN',
-            'ru': 'RU', 'hi': 'IN', 'ar': 'SA', 'sv': 'SE', 'no': 'NO',
-            'da': 'DK', 'fi': 'FI', 'pl': 'PL', 'cs': 'CZ', 'hu': 'HU'
-        }
-    
-    async def create_playlist(self, analysis_result: Dict[str, Any], duration_minutes: int, playlist_name: str) -> str:
-        """Create a Spotify playlist based on analysis results."""
-        user = self.client.current_user()
-        target_tracks = max(15, int(duration_minutes / 3.5))  # Aim for ~3.5 min average per track
+        # Step 1: Get user context if authenticated
+        user_context = ""
+        if self.spotify.is_authenticated():
+            user_context = await self._get_user_context()
         
-        # Get tracks: 40% from user history, 60% from search-based recommendations
-        user_tracks_count = int(target_tracks * 0.4)
-        search_tracks_count = target_tracks - user_tracks_count
+        # Step 2: Use Gemini to generate search queries
+        search_queries = await self._generate_search_queries(prompt, user_context)
         
-        print(f"🎯 Target: {target_tracks} tracks ({user_tracks_count} from user, {search_tracks_count} from search)")
+        # Step 3: Search for tracks using generated queries
+        all_tracks = []
+        for query in search_queries:
+            tracks = self.spotify.search_tracks(query, limit=15)
+            all_tracks.extend(tracks)
         
-        user_tracks = await self._get_user_tracks(user_tracks_count, analysis_result)
-        search_tracks = await self._get_search_based_tracks(search_tracks_count, analysis_result, user_tracks)
+        # Step 4: Get recommendations if we have user data
+        if self.spotify.is_authenticated() and all_tracks:
+            # Use some found tracks as seeds for recommendations
+            seed_ids = [track["id"] for track in all_tracks[:5] if track.get("id")]
+            if seed_ids:
+                rec_tracks = self.spotify.get_recommendations(seed_ids, limit=20)
+                all_tracks.extend(rec_tracks)
         
-        # Combine and shuffle
-        all_tracks = user_tracks + search_tracks
-        random.shuffle(all_tracks)
+        # Step 5: Remove duplicates and use Gemini to select best tracks
+        unique_tracks = self._remove_duplicates(all_tracks)
         
-        print(f"✅ Collected {len(all_tracks)} total tracks")
+        if not unique_tracks:
+            raise Exception("No tracks found for the given prompt")
         
-        # Create playlist
-        description = f"AI-generated playlist based on: '{analysis_result['raw_prompt'][:80]}...'"
-        playlist = self.client.playlist_create(
-            user_id=user.id,
-            name=playlist_name,
-            description=description,
-            public=False
+        # Step 6: Use Gemini to curate the final playlist
+        selected_tracks = await self._curate_playlist(
+            unique_tracks, prompt, duration_minutes
         )
         
-        # Add tracks in batches
-        track_uris = [track.uri for track in all_tracks if track and hasattr(track, 'uri')]
+        # Step 7: Save track data
+        await self._save_playlist_data(selected_tracks, prompt, playlist_name)
+        
+        # Step 8: Create Spotify playlist
+        playlist_url = self.spotify.create_playlist(
+            name=playlist_name,
+            description=f"AI-generated playlist: {prompt}"
+        )
+        
+        # Step 9: Add tracks to playlist
+        track_uris = [track["uri"] for track in selected_tracks if track.get("uri")]
         if track_uris:
-            for i in range(0, len(track_uris), 100):
-                batch = track_uris[i:i + 100]
-                if batch:  # Only add if batch is not empty
-                    self.client.playlist_add(playlist.id, batch)
+            playlist_id = playlist_url.split("/")[-1]
+            self.spotify.add_tracks_to_playlist(playlist_id, track_uris)
         
-        print(f"🎵 Created playlist with {len(track_uris)} tracks")
-        return playlist.external_urls['spotify']
+        logger.info(f"Playlist created successfully: {playlist_url}")
+        return playlist_url
     
-    async def _get_user_tracks(self, count: int, analysis_result: Dict[str, Any]) -> List[Union[tk.model.Track, tk.model.FullTrack]]:
-        """Get tracks from user's listening history."""
-        all_tracks = []
-        
+    async def _get_user_context(self) -> str:
+        """Get user listening context for better recommendations."""
         try:
-            # Get top tracks from different time ranges
-            for time_range in ['short_term', 'medium_term', 'long_term']:
-                try:
-                    top_tracks = self.client.current_user_top_tracks(limit=20, time_range=time_range)
-                    all_tracks.extend([track for track in top_tracks.items if track])
-                except Exception as e:
-                    print(f"Warning: Could not get {time_range} top tracks: {e}")
+            # Load recent user data if available
+            import glob
+            data_files = glob.glob("user_data_*.json")
+            if not data_files:
+                return ""
             
-            # Get recent tracks
-            try:
-                recent = self.client.playback_recently_played(limit=30)
-                all_tracks.extend([item.track for item in recent.items if item.track])
-            except Exception as e:
-                print(f"Warning: Could not get recent tracks: {e}")
-                
+            # Get the most recent file
+            latest_file = max(data_files)
+            with open(latest_file, 'r') as f:
+                user_data = json.load(f)
+            
+            # Extract key preferences
+            top_artists = []
+            if user_data.get("top_tracks"):
+                top_artists = list(set([
+                    track["artist"] for track in user_data["top_tracks"][:10]
+                ]))[:5]
+            
+            recent_genres = []
+            # Simple genre detection based on artist names (could be enhanced)
+            
+            context = f"User's top artists: {', '.join(top_artists)}"
+            return context
+            
         except Exception as e:
-            print(f"Error getting user tracks: {e}")
-            return []
-        
-        # Remove duplicates and None values
-        unique_tracks = {track.id: track for track in all_tracks if track and hasattr(track, 'id')}.values()
-        tracks_list = list(unique_tracks)
-        
-        print(f"📚 Found {len(tracks_list)} unique user tracks")
-        
-        # Return random selection
-        return random.sample(tracks_list, min(count, len(tracks_list)))
+            logger.warning(f"Failed to get user context: {e}")
+            return ""
     
-    async def _get_search_based_tracks(
-        self, count: int, analysis_result: Dict[str, Any], user_tracks: List
-    ) -> List[tk.model.FullTrack]:
-        """Get tracks through search (replacement for deprecated recommendations API)."""
-        # Get primary sentiment
-        sentiment_scores = analysis_result.get('sentiment', {})
-        if not sentiment_scores:
-            sentiment_scores = {'neutral': 1.0}
-        
-        primary_sentiment = max(sentiment_scores.items(), key=lambda x: x[1])[0]
-        print(f"🎭 Primary sentiment: {primary_sentiment}")
-        
-        # Get market based on detected language
-        language = analysis_result.get('language', 'en')
-        market = self.language_markets.get(language, 'US')
-        
-        # Get search keywords and genres for this sentiment
-        keywords = self.sentiment_keywords.get(primary_sentiment, self.sentiment_keywords['neutral'])
-        genres = self.sentiment_genres.get(primary_sentiment, self.sentiment_genres['neutral'])
-        
-        all_found_tracks = []
-        user_track_ids = {track.id for track in user_tracks if track and hasattr(track, 'id')}
-        
-        # Search with different strategies
-        search_queries = []
-        
-        # Strategy 1: Genre-based searches
-        for genre in genres[:3]:  # Limit to top 3 genres
-            search_queries.append(f"genre:{genre}")
+    async def _generate_search_queries(self, prompt: str, user_context: str) -> List[str]:
+        """Use Gemini to generate effective search queries."""
+        # If Gemini is not available, use simple fallback
+        if not self.model:
+            return self._generate_fallback_queries(prompt)
             
-        # Strategy 2: Keyword-based searches
-        for keyword in keywords[:4]:  # Limit to top 4 keywords
-            search_queries.append(keyword)
+        try:
+            gemini_prompt = f"""
+            Based on the user's request: "{prompt}"
+            {f"And their listening history: {user_context}" if user_context else ""}
             
-        # Strategy 3: Combined searches
-        search_queries.append(f"{keywords[0]} {genres[0]}")
-        if len(keywords) > 1 and len(genres) > 1:
-            search_queries.append(f"{keywords[1]} {genres[1]}")
-        
-        # Strategy 4: Year-based searches for variety
-        current_year = 2025
-        for year_offset in [0, -5, -10, -15]:  # Current, 2019, 2014, 2009
-            year = current_year + year_offset
-            search_queries.append(f"{keywords[0]} year:{year}")
-        
-        print(f"🔍 Using {len(search_queries)} search strategies")
-        
-        for query in search_queries:
-            try:
-                results = self.client.search(
-                    query=query, 
-                    types=('track',), 
-                    limit=20,
-                    market=market
-                )
-                
-                if results and len(results) > 0 and results[0]:  # tracks is first in tuple
-                    tracks_page = results[0]
-                    if hasattr(tracks_page, 'items'):
-                        # Filter out user tracks and None values
-                        new_tracks = [
-                            track for track in tracks_page.items 
-                            if track and hasattr(track, 'id') and track.id not in user_track_ids
-                        ]
-                        all_found_tracks.extend(new_tracks)
-                        
-            except Exception as e:
-                print(f"Search error for '{query}': {e}")
-                continue
-        
-        # Remove duplicates
-        if all_found_tracks:
-            unique_tracks = {track.id: track for track in all_found_tracks if track and hasattr(track, 'id')}.values()
-            tracks_list = list(unique_tracks)
-            print(f"🔍 Found {len(tracks_list)} unique search results")
+            Generate 5-7 specific music search queries that would find relevant songs.
+            Focus on:
+            1. Genre keywords
+            2. Mood/emotion keywords  
+            3. Artist suggestions
+            4. Musical characteristics
+            5. Popular songs that match the vibe
             
-            # Return random selection
-            return random.sample(tracks_list, min(count, len(tracks_list)))
-        else:
-            print("⚠️ No tracks found through search, using fallback")
-            return await self._fallback_popular_search(count, market, user_track_ids)
+            Return only the search queries, one per line, without numbering or formatting.
+            Each query should be 2-4 words max for best results.
+            
+            Examples:
+            - For "workout music": "high energy rock", "pump up songs", "electronic dance", "motivational rap"
+            - For "sad songs": "melancholy ballads", "acoustic sad", "emotional indie", "heartbreak songs"
+            """
+            
+            response = self.model.generate_content(gemini_prompt)
+            queries = [
+                line.strip() 
+                for line in response.text.split('\n') 
+                if line.strip() and not line.strip().startswith('-')
+            ]
+            
+            # Fallback queries if Gemini response is empty or invalid
+            if not queries:
+                return self._generate_fallback_queries(prompt)
+            
+            logger.info(f"Generated search queries: {queries}")
+            return queries[:7]  # Limit to 7 queries
+            
+        except Exception as e:
+            logger.error(f"Failed to generate search queries: {e}")
+            return self._generate_fallback_queries(prompt)
     
-    async def _fallback_popular_search(self, count: int, market: str, exclude_ids: set) -> List[tk.model.FullTrack]:
-        """Fallback to popular/trending tracks when other searches fail."""
-        fallback_queries = [
-            "top hits", "trending", "popular", "best songs", "chart hits",
-            "new releases", "viral", "most played", "radio hits", "favorites"
-        ]
+    def _generate_fallback_queries(self, prompt: str) -> List[str]:
+        """Generate search queries without AI."""
+        queries = [prompt]
         
-        all_tracks = []
+        # Simple keyword-based query generation
+        words = prompt.lower().split()
         
-        for query in fallback_queries:
+        # Add genre-based queries
+        genres = ['pop', 'rock', 'hip hop', 'electronic', 'indie', 'jazz', 'country', 'r&b']
+        for genre in genres:
+            if genre in prompt.lower():
+                queries.append(f"{genre} music")
+                queries.append(f"best {genre}")
+        
+        # Add mood-based queries
+        if any(word in prompt.lower() for word in ['happy', 'upbeat', 'energetic', 'party']):
+            queries.extend(['upbeat songs', 'dance music', 'party hits'])
+        elif any(word in prompt.lower() for word in ['sad', 'emotional', 'melancholy']):
+            queries.extend(['sad songs', 'ballads', 'emotional music'])
+        elif any(word in prompt.lower() for word in ['chill', 'relax', 'calm']):
+            queries.extend(['chill music', 'relaxing songs', 'ambient'])
+        elif any(word in prompt.lower() for word in ['workout', 'gym', 'exercise']):
+            queries.extend(['workout music', 'high energy', 'pump up'])
+        
+        # Add popular fallbacks
+        queries.extend(['popular music', 'trending songs'])
+        
+        return list(set(queries))[:7]  # Remove duplicates and limit
+    
+    async def _curate_playlist(
+        self, 
+        tracks: List[Dict[str, Any]], 
+        prompt: str, 
+        duration_minutes: int
+    ) -> List[Dict[str, Any]]:
+        """Use Gemini to select and order the best tracks."""
+        # Estimate target number of tracks (average 3.5 min per song)
+        target_count = max(10, min(50, int(duration_minutes / 3.5)))
+        
+        # If we don't have too many tracks, just return them shuffled
+        if len(tracks) <= target_count:
+            random.shuffle(tracks)
+            return tracks
+        
+        # If Gemini is not available, use simple selection
+        if not self.model:
+            return self._simple_track_selection(tracks, target_count, prompt)
+            
+        try:
+            # Prepare track data for Gemini
+            track_summaries = []
+            for i, track in enumerate(tracks[:100]):  # Limit to first 100 for Gemini
+                summary = f"{i}: {track['name']} by {track['artist']} (popularity: {track.get('popularity', 0)})"
+                track_summaries.append(summary)
+            
+            gemini_prompt = f"""
+            You are a music curator. Select the best {target_count} tracks from this list for a playlist with the theme: "{prompt}"
+            
+            Available tracks:
+            {chr(10).join(track_summaries)}
+            
+            Consider:
+            1. How well each track matches the prompt/theme
+            2. Musical variety and flow
+            3. Track popularity and quality
+            4. Good mix of familiar and discovery tracks
+            
+            Return only the numbers (0-{len(track_summaries)-1}) of your selected tracks, separated by commas.
+            Example: 0,5,12,18,25,33,41,48
+            """
+            
+            response = self.model.generate_content(gemini_prompt)
+            
+            # Parse the response
+            selected_indices = []
             try:
-                results = self.client.search(
-                    query=query, 
-                    types=('track',), 
-                    limit=15,
-                    market=market
-                )
-                
-                if results and len(results) > 0 and results[0]:
-                    tracks_page = results[0]
-                    if hasattr(tracks_page, 'items'):
-                        new_tracks = [
-                            track for track in tracks_page.items 
-                            if track and hasattr(track, 'id') and track.id not in exclude_ids
-                        ]
-                        all_tracks.extend(new_tracks)
-                        
-            except Exception as e:
-                print(f"Fallback search error for '{query}': {e}")
+                indices_text = response.text.strip()
+                selected_indices = [
+                    int(idx.strip()) 
+                    for idx in indices_text.split(',') 
+                    if idx.strip().isdigit()
+                ]
+            except:
+                logger.warning("Failed to parse Gemini track selection")
+                return self._simple_track_selection(tracks, target_count, prompt)
+            
+            # Validate indices and select tracks
+            selected_tracks = []
+            for idx in selected_indices:
+                if 0 <= idx < len(tracks):
+                    selected_tracks.append(tracks[idx])
+            
+            # If we don't have enough tracks, fill with random selection
+            if len(selected_tracks) < target_count // 2:
+                logger.warning("Gemini selection insufficient, using simple selection")
+                return self._simple_track_selection(tracks, target_count, prompt)
+            
+            logger.info(f"Curated {len(selected_tracks)} tracks from {len(tracks)} candidates")
+            return selected_tracks
+            
+        except Exception as e:
+            logger.error(f"Track curation failed: {e}")
+            return self._simple_track_selection(tracks, target_count, prompt)
+    
+    def _simple_track_selection(
+        self, 
+        tracks: List[Dict[str, Any]], 
+        target_count: int, 
+        prompt: str
+    ) -> List[Dict[str, Any]]:
+        """Simple track selection without AI."""
+        # Sort by popularity and select a mix
+        sorted_tracks = sorted(tracks, key=lambda x: x.get('popularity', 0), reverse=True)
         
-        if all_tracks:
-            unique_tracks = {track.id: track for track in all_tracks if track and hasattr(track, 'id')}.values()
-            tracks_list = list(unique_tracks)
-            print(f"🆘 Fallback found {len(tracks_list)} tracks")
-            return random.sample(tracks_list, min(count, len(tracks_list)))
-        else:
-            print("❌ All search strategies failed")
-            return []
+        # Take 70% popular tracks, 30% random for discovery
+        popular_count = int(target_count * 0.7)
+        random_count = target_count - popular_count
+        
+        selected = sorted_tracks[:popular_count]
+        
+        # Add random tracks from the rest
+        remaining = sorted_tracks[popular_count:]
+        if remaining and random_count > 0:
+            random.shuffle(remaining)
+            selected.extend(remaining[:random_count])
+        
+        # Final shuffle
+        random.shuffle(selected)
+        return selected[:target_count]
+    
+    def _remove_duplicates(self, tracks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate tracks based on ID."""
+        seen = set()
+        unique = []
+        
+        for track in tracks:
+            track_id = track.get("id")
+            if track_id and track_id not in seen:
+                seen.add(track_id)
+                unique.append(track)
+        
+        return unique
+    
+    async def _save_playlist_data(
+        self, 
+        tracks: List[Dict[str, Any]], 
+        prompt: str, 
+        playlist_name: str
+    ):
+        """Save playlist data to JSON file."""
+        try:
+            playlist_data = {
+                "timestamp": datetime.now().isoformat(),
+                "prompt": prompt,
+                "playlist_name": playlist_name,
+                "total_tracks": len(tracks),
+                "tracks": tracks
+            }
+            
+            filename = f"playlist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w') as f:
+                json.dump(playlist_data, f, indent=2, default=str)
+            
+            logger.info(f"Playlist data saved to {filename}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save playlist data: {e}")
