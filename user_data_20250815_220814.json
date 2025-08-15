@@ -1,0 +1,1033 @@
+{
+  "timestamp": "2025-08-15T22:08:13.154400",
+  "user_profile": {
+    "id": "0gk6y3nua1dbpc3dxfil3rggu",
+    "display_name": "soham",
+    "email": null,
+    "country": "IN",
+    "followers": 0
+  },
+  "top_tracks": [
+    {
+      "name": "Saiyaara (From \"Saiyaara\")",
+      "artist": "Tanishk Bagchi, Faheem Abdullah, Arslan Nizami, Irshad Kamil",
+      "album": "Saiyaara (From \"Saiyaara\")",
+      "id": "1D35BJlymlh6OLD75WupSF",
+      "uri": "spotify:track:1D35BJlymlh6OLD75WupSF",
+      "popularity": 90
+    },
+    {
+      "name": "Humsafar (From \"Saiyaara\")",
+      "artist": "Sachet-Parampara, Sachet Tandon, Parampara Tandon, Irshad Kamil, Prashant Pandey",
+      "album": "Humsafar (From \"Saiyaara\")",
+      "id": "0OLTYqD8FpjkLsxJmdWmgi",
+      "uri": "spotify:track:0OLTYqD8FpjkLsxJmdWmgi",
+      "popularity": 79
+    },
+    {
+      "name": "Barbaad (From \"Saiyaara\")",
+      "artist": "The Rish, Jubin Nautiyal",
+      "album": "Barbaad (From \"Saiyaara\")",
+      "id": "7Csa4PStpuYIfUqNMKQ4V8",
+      "uri": "spotify:track:7Csa4PStpuYIfUqNMKQ4V8",
+      "popularity": 80
+    },
+    {
+      "name": "Saiyaara Reprise - Female",
+      "artist": "Tanishk Bagchi, Faheem Abdullah, Arslan Nizami, Shreya Ghoshal, Irshad Kamil",
+      "album": "Saiyaara",
+      "id": "1uRTH9LeFh40tFYlq48vcy",
+      "uri": "spotify:track:1uRTH9LeFh40tFYlq48vcy",
+      "popularity": 80
+    },
+    {
+      "name": "Dhun (From \"Saiyaara\")",
+      "artist": "Mithoon, Arijit Singh",
+      "album": "Dhun (From \"Saiyaara\")",
+      "id": "1GFQthxDi4Tqe3wJ5j0G5S",
+      "uri": "spotify:track:1GFQthxDi4Tqe3wJ5j0G5S",
+      "popularity": 82
+    },
+    {
+      "name": "dandelion",
+      "artist": "Ariana Grande",
+      "album": "eternal sunshine deluxe: brighter days ahead (a cappella version)",
+      "id": "3fxDcaiomBMomHdMeCSsZ2",
+      "uri": "spotify:track:3fxDcaiomBMomHdMeCSsZ2",
+      "popularity": 67
+    },
+    {
+      "name": "twilight zone",
+      "artist": "Ariana Grande",
+      "album": "eternal sunshine deluxe: brighter days ahead (a cappella version)",
+      "id": "1edcyazKIdKrIuz9cWpXU6",
+      "uri": "spotify:track:1edcyazKIdKrIuz9cWpXU6",
+      "popularity": 76
+    },
+    {
+      "name": "Nahin Milta",
+      "artist": "Bayaan",
+      "album": "4 Saal",
+      "id": "0cUdmruT6kjxa5KpteSdwc",
+      "uri": "spotify:track:0cUdmruT6kjxa5KpteSdwc",
+      "popularity": 63
+    },
+    {
+      "name": "Barbaad Reprise - Female",
+      "artist": "The Rish, Shilpa Rao",
+      "album": "Saiyaara",
+      "id": "2A7uwnEzSin7nf0498AE3x",
+      "uri": "spotify:track:2A7uwnEzSin7nf0498AE3x",
+      "popularity": 75
+    },
+    {
+      "name": "Espresso",
+      "artist": "Sabrina Carpenter",
+      "album": "Short n' Sweet",
+      "id": "2HRqTpkrJO5ggZyyK6NPWz",
+      "uri": "spotify:track:2HRqTpkrJO5ggZyyK6NPWz",
+      "popularity": 87
+    },
+    {
+      "name": "Disease",
+      "artist": "Lady Gaga",
+      "album": "MAYHEM",
+      "id": "0T3Hw3kPj9T2E4UoaSXmfn",
+      "uri": "spotify:track:0T3Hw3kPj9T2E4UoaSXmfn",
+      "popularity": 76
+    },
+    {
+      "name": "Teenage Dream",
+      "artist": "Katy Perry",
+      "album": "Teenage Dream",
+      "id": "5jzKL4BDMClWqRguW5qZvh",
+      "uri": "spotify:track:5jzKL4BDMClWqRguW5qZvh",
+      "popularity": 77
+    },
+    {
+      "name": "Poker Face",
+      "artist": "Lady Gaga",
+      "album": "The Fame",
+      "id": "1QV6tiMFM6fSOKOGLMHYYg",
+      "uri": "spotify:track:1QV6tiMFM6fSOKOGLMHYYg",
+      "popularity": 84
+    },
+    {
+      "name": "Don’t Blame Me",
+      "artist": "Taylor Swift",
+      "album": "reputation",
+      "id": "1R0a2iXumgCiFb7HEZ7gUE",
+      "uri": "spotify:track:1R0a2iXumgCiFb7HEZ7gUE",
+      "popularity": 84
+    },
+    {
+      "name": "Pardesiya - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Sonu Nigam, Krishnakali Saha, Amitabh Bhattacharya",
+      "album": "Pardesiya (From \"Param Sundari\")",
+      "id": "0q84FggW57NXGtLHoetS0Y",
+      "uri": "spotify:track:0q84FggW57NXGtLHoetS0Y",
+      "popularity": 78
+    },
+    {
+      "name": "Style",
+      "artist": "Taylor Swift",
+      "album": "1989 (Deluxe)",
+      "id": "0ug5NqcwcFR2xrfTkc7k8e",
+      "uri": "spotify:track:0ug5NqcwcFR2xrfTkc7k8e",
+      "popularity": 84
+    },
+    {
+      "name": "past life",
+      "artist": "Ariana Grande",
+      "album": "eternal sunshine deluxe: brighter days ahead (a cappella version)",
+      "id": "2Im5a2GdRF1QIUUNqnloX4",
+      "uri": "spotify:track:2Im5a2GdRF1QIUUNqnloX4",
+      "popularity": 62
+    },
+    {
+      "name": "Abracadabra",
+      "artist": "Lady Gaga",
+      "album": "MAYHEM",
+      "id": "2LHNTC9QZxsL3nWpt8iaSR",
+      "uri": "spotify:track:2LHNTC9QZxsL3nWpt8iaSR",
+      "popularity": 82
+    },
+    {
+      "name": "CHIHIRO",
+      "artist": "Billie Eilish",
+      "album": "HIT ME HARD AND SOFT",
+      "id": "7BRD7x5pt8Lqa1eGYC4dzj",
+      "uri": "spotify:track:7BRD7x5pt8Lqa1eGYC4dzj",
+      "popularity": 87
+    },
+    {
+      "name": "supernatural",
+      "artist": "Ariana Grande",
+      "album": "eternal sunshine",
+      "id": "142PiXzA84lmEw2RstFHFa",
+      "uri": "spotify:track:142PiXzA84lmEw2RstFHFa",
+      "popularity": 84
+    },
+    {
+      "name": "Garden Of Eden",
+      "artist": "Lady Gaga",
+      "album": "MAYHEM",
+      "id": "4mUR5Tv0CvJtpmnUtzeIgd",
+      "uri": "spotify:track:4mUR5Tv0CvJtpmnUtzeIgd",
+      "popularity": 78
+    },
+    {
+      "name": "Cruel Summer",
+      "artist": "Taylor Swift",
+      "album": "Lover",
+      "id": "1BxfuPKGuaTgP7aM0Bbdwr",
+      "uri": "spotify:track:1BxfuPKGuaTgP7aM0Bbdwr",
+      "popularity": 89
+    },
+    {
+      "name": "BIRDS OF A FEATHER",
+      "artist": "Billie Eilish",
+      "album": "HIT ME HARD AND SOFT",
+      "id": "6dOtVTDdiauQNBQEDOtlAB",
+      "uri": "spotify:track:6dOtVTDdiauQNBQEDOtlAB",
+      "popularity": 96
+    },
+    {
+      "name": "The One That Got Away",
+      "artist": "Katy Perry",
+      "album": "Teenage Dream",
+      "id": "6hkOqJ5mE093AQf2lbZnsG",
+      "uri": "spotify:track:6hkOqJ5mE093AQf2lbZnsG",
+      "popularity": 74
+    },
+    {
+      "name": "Tum Ho Toh (From \"Saiyaara\")",
+      "artist": "Vishal Mishra, Hansika Pareek, Raj Shekhar",
+      "album": "Tum Ho Toh (From \"Saiyaara\")",
+      "id": "6G8vN5EUtcDxOXOXadF6kp",
+      "uri": "spotify:track:6G8vN5EUtcDxOXOXadF6kp",
+      "popularity": 81
+    },
+    {
+      "name": "Untouchable (Taylor’s Version)",
+      "artist": "Taylor Swift",
+      "album": "Fearless (Taylor's Version)",
+      "id": "0tQ9vBYpldCuikPsbgOVKA",
+      "uri": "spotify:track:0tQ9vBYpldCuikPsbgOVKA",
+      "popularity": 63
+    },
+    {
+      "name": "Just Dance",
+      "artist": "Lady Gaga, Colby O'Donis",
+      "album": "The Fame",
+      "id": "1dzQoRqT5ucxXVaAhTcT0J",
+      "uri": "spotify:track:1dzQoRqT5ucxXVaAhTcT0J",
+      "popularity": 83
+    },
+    {
+      "name": "august",
+      "artist": "Taylor Swift",
+      "album": "folklore",
+      "id": "3hUxzQpSfdDqwM3ZTFQY0K",
+      "uri": "spotify:track:3hUxzQpSfdDqwM3ZTFQY0K",
+      "popularity": 88
+    },
+    {
+      "name": "One Last Time",
+      "artist": "Ariana Grande",
+      "album": "My Everything (Deluxe)",
+      "id": "7xoUc6faLbCqZO6fQEYprd",
+      "uri": "spotify:track:7xoUc6faLbCqZO6fQEYprd",
+      "popularity": 84
+    },
+    {
+      "name": "Dancing With Our Hands Tied",
+      "artist": "Taylor Swift",
+      "album": "reputation",
+      "id": "7I7JbDv63ZJJsSi24DyJrz",
+      "uri": "spotify:track:7I7JbDv63ZJJsSi24DyJrz",
+      "popularity": 73
+    },
+    {
+      "name": "coney island (feat. The National)",
+      "artist": "Taylor Swift, The National",
+      "album": "evermore",
+      "id": "4tyX1rw9X309WkEdh2As4B",
+      "uri": "spotify:track:4tyX1rw9X309WkEdh2As4B",
+      "popularity": 56
+    },
+    {
+      "name": "São Paulo (feat. Anitta)",
+      "artist": "The Weeknd, Anitta",
+      "album": "Hurry Up Tomorrow",
+      "id": "7DY756WOLyOz2Xnhw4EFiC",
+      "uri": "spotify:track:7DY756WOLyOz2Xnhw4EFiC",
+      "popularity": 85
+    },
+    {
+      "name": "Afterglow",
+      "artist": "Taylor Swift",
+      "album": "Lover",
+      "id": "1SymEzIT3H8UZfibCs3TYi",
+      "uri": "spotify:track:1SymEzIT3H8UZfibCs3TYi",
+      "popularity": 74
+    },
+    {
+      "name": "Fortnight (feat. Post Malone)",
+      "artist": "Taylor Swift, Post Malone",
+      "album": "THE TORTURED POETS DEPARTMENT",
+      "id": "2OzhQlSqBEmt7hmkYxfT6m",
+      "uri": "spotify:track:2OzhQlSqBEmt7hmkYxfT6m",
+      "popularity": 83
+    },
+    {
+      "name": "...Baby One More Time",
+      "artist": "Britney Spears",
+      "album": "...Baby One More Time (Digital Deluxe Version)",
+      "id": "3MjUtNVVq3C8Fn0MP3zhXa",
+      "uri": "spotify:track:3MjUtNVVq3C8Fn0MP3zhXa",
+      "popularity": 82
+    },
+    {
+      "name": "Diet Pepsi",
+      "artist": "Addison Rae",
+      "album": "Addison",
+      "id": "6ouhsRJ7gExB7LCYjITk4Y",
+      "uri": "spotify:track:6ouhsRJ7gExB7LCYjITk4Y",
+      "popularity": 82
+    },
+    {
+      "name": "Headphones On",
+      "artist": "Addison Rae",
+      "album": "Addison",
+      "id": "3H6xZgwRZx8McVUJzmMxWe",
+      "uri": "spotify:track:3H6xZgwRZx8McVUJzmMxWe",
+      "popularity": 73
+    },
+    {
+      "name": "Saturn",
+      "artist": "SZA",
+      "album": "SOS Deluxe: LANA",
+      "id": "040I32EKLxQrkuxQu1pqvT",
+      "uri": "spotify:track:040I32EKLxQrkuxQu1pqvT",
+      "popularity": 81
+    },
+    {
+      "name": "Always Remember Us This Way",
+      "artist": "Lady Gaga",
+      "album": "A Star Is Born Soundtrack (Without Dialogue)",
+      "id": "2rbDhOo9Fh61Bbu23T2qCk",
+      "uri": "spotify:track:2rbDhOo9Fh61Bbu23T2qCk",
+      "popularity": 84
+    },
+    {
+      "name": "Training Season",
+      "artist": "Dua Lipa",
+      "album": "Radical Optimism",
+      "id": "5b5cPscqVEMChvDqscVw26",
+      "uri": "spotify:track:5b5cPscqVEMChvDqscVw26",
+      "popularity": 79
+    },
+    {
+      "name": "Die With A Smile",
+      "artist": "Lady Gaga, Bruno Mars",
+      "album": "MAYHEM",
+      "id": "7so0lgd0zP2Sbgs2d7a1SZ",
+      "uri": "spotify:track:7so0lgd0zP2Sbgs2d7a1SZ",
+      "popularity": 87
+    },
+    {
+      "name": "eternal sunshine",
+      "artist": "Ariana Grande",
+      "album": "eternal sunshine",
+      "id": "3RwWW7KeVhHGayYJgUL5eZ",
+      "uri": "spotify:track:3RwWW7KeVhHGayYJgUL5eZ",
+      "popularity": 73
+    },
+    {
+      "name": "About You",
+      "artist": "The 1975",
+      "album": "Being Funny In A Foreign Language",
+      "id": "1fDFHXcykq4iw8Gg7s5hG9",
+      "uri": "spotify:track:1fDFHXcykq4iw8Gg7s5hG9",
+      "popularity": 86
+    },
+    {
+      "name": "imgonnagetyouback",
+      "artist": "Taylor Swift",
+      "album": "THE TORTURED POETS DEPARTMENT: THE ANTHOLOGY",
+      "id": "1kcwpPDQnqEqmezzXdJTCP",
+      "uri": "spotify:track:1kcwpPDQnqEqmezzXdJTCP",
+      "popularity": 74
+    },
+    {
+      "name": "Save Your Tears (Remix) (with Ariana Grande) - Bonus Track",
+      "artist": "The Weeknd, Ariana Grande",
+      "album": "After Hours (Deluxe)",
+      "id": "1oFAF1hdPOickyHgbuRjyX",
+      "uri": "spotify:track:1oFAF1hdPOickyHgbuRjyX",
+      "popularity": 82
+    },
+    {
+      "name": "Only Girl (In The World)",
+      "artist": "Rihanna",
+      "album": "Loud (Japan Version)",
+      "id": "2ENexcMEMsYk0rVJigVD3i",
+      "uri": "spotify:track:2ENexcMEMsYk0rVJigVD3i",
+      "popularity": 85
+    },
+    {
+      "name": "O Rangrez",
+      "artist": "Shankar-Ehsaan-Loy, Shreya Ghoshal, Javed Bashir, Yusuf Mohammed, Vajid Ali",
+      "album": "Bhaag Milkha Bhaag (Original Motion Picture Soundtrack)",
+      "id": "5JCDVLwteSXuwVqjCa7SwH",
+      "uri": "spotify:track:5JCDVLwteSXuwVqjCa7SwH",
+      "popularity": 74
+    },
+    {
+      "name": "S&M",
+      "artist": "Rihanna",
+      "album": "Loud (Japan Version)",
+      "id": "7ySUcLPVX7KudhnmNcgY2D",
+      "uri": "spotify:track:7ySUcLPVX7KudhnmNcgY2D",
+      "popularity": 83
+    },
+    {
+      "name": "Break Free",
+      "artist": "Ariana Grande, Zedd",
+      "album": "My Everything (Deluxe)",
+      "id": "12KUFSHFgT0XCoiSlvdQi4",
+      "uri": "spotify:track:12KUFSHFgT0XCoiSlvdQi4",
+      "popularity": 79
+    },
+    {
+      "name": "THE GREATEST",
+      "artist": "Billie Eilish",
+      "album": "HIT ME HARD AND SOFT",
+      "id": "6TGd66r0nlPaYm3KIoI7ET",
+      "uri": "spotify:track:6TGd66r0nlPaYm3KIoI7ET",
+      "popularity": 82
+    }
+  ],
+  "recent_tracks": [
+    {
+      "name": "positions",
+      "artist": "Ariana Grande",
+      "played_at": "2025-08-15T15:32:28.155000+00:00",
+      "id": "35mvY5S1H3J2QZyna3TFe0",
+      "uri": "spotify:track:35mvY5S1H3J2QZyna3TFe0",
+      "popularity": 79
+    },
+    {
+      "name": "Imaginary Playerz",
+      "artist": "Cardi B",
+      "played_at": "2025-08-15T04:20:11.060000+00:00",
+      "id": "7ljZhhXv3rP8dJJ3RlupWt",
+      "uri": "spotify:track:7ljZhhXv3rP8dJJ3RlupWt",
+      "popularity": 0
+    },
+    {
+      "name": "Imaginary Playerz",
+      "artist": "Cardi B",
+      "played_at": "2025-08-15T04:16:42.749000+00:00",
+      "id": "7ljZhhXv3rP8dJJ3RlupWt",
+      "uri": "spotify:track:7ljZhhXv3rP8dJJ3RlupWt",
+      "popularity": 0
+    },
+    {
+      "name": "Call It What You Want",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T17:55:33.462000+00:00",
+      "id": "1GwMQaZz6Au3QLDbjbMdme",
+      "uri": "spotify:track:1GwMQaZz6Au3QLDbjbMdme",
+      "popularity": 77
+    },
+    {
+      "name": "cardigan",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T15:19:37.937000+00:00",
+      "id": "4R2kfaDFhslZEMJqAFNpdd",
+      "uri": "spotify:track:4R2kfaDFhslZEMJqAFNpdd",
+      "popularity": 85
+    },
+    {
+      "name": "Style",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T15:15:37.878000+00:00",
+      "id": "0ug5NqcwcFR2xrfTkc7k8e",
+      "uri": "spotify:track:0ug5NqcwcFR2xrfTkc7k8e",
+      "popularity": 84
+    },
+    {
+      "name": "Blank Space",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T15:12:08.018000+00:00",
+      "id": "1u8c2t2Cy7UBoG4ArRcF5g",
+      "uri": "spotify:track:1u8c2t2Cy7UBoG4ArRcF5g",
+      "popularity": 83
+    },
+    {
+      "name": "Lover",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T15:08:48.151000+00:00",
+      "id": "1dGr1c8CrMLDpV6mPbImSI",
+      "uri": "spotify:track:1dGr1c8CrMLDpV6mPbImSI",
+      "popularity": 85
+    },
+    {
+      "name": "Cruel Summer",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T06:15:23.416000+00:00",
+      "id": "1BxfuPKGuaTgP7aM0Bbdwr",
+      "uri": "spotify:track:1BxfuPKGuaTgP7aM0Bbdwr",
+      "popularity": 89
+    },
+    {
+      "name": "Cruel Summer",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T06:01:15.839000+00:00",
+      "id": "1BxfuPKGuaTgP7aM0Bbdwr",
+      "uri": "spotify:track:1BxfuPKGuaTgP7aM0Bbdwr",
+      "popularity": 89
+    },
+    {
+      "name": "Fortnight (feat. Post Malone)",
+      "artist": "Taylor Swift, Post Malone",
+      "played_at": "2025-08-14T05:57:48.117000+00:00",
+      "id": "2OzhQlSqBEmt7hmkYxfT6m",
+      "uri": "spotify:track:2OzhQlSqBEmt7hmkYxfT6m",
+      "popularity": 83
+    },
+    {
+      "name": "If This Was A Movie (Taylor’s Version)",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T05:52:17.795000+00:00",
+      "id": "0kAZ3H6G9Zac4PMpmobMkj",
+      "uri": "spotify:track:0kAZ3H6G9Zac4PMpmobMkj",
+      "popularity": 65
+    },
+    {
+      "name": "All You Had To Do Was Stay",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T04:38:05.838000+00:00",
+      "id": "4NNolUeL5m2ju7kf8pdg6H",
+      "uri": "spotify:track:4NNolUeL5m2ju7kf8pdg6H",
+      "popularity": 62
+    },
+    {
+      "name": "Complicated",
+      "artist": "Avril Lavigne",
+      "played_at": "2025-08-14T04:35:05.890000+00:00",
+      "id": "5xEM5hIgJ1jjgcEBfpkt2F",
+      "uri": "spotify:track:5xEM5hIgJ1jjgcEBfpkt2F",
+      "popularity": 84
+    },
+    {
+      "name": "Red (Taylor's Version)",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T04:34:36.127000+00:00",
+      "id": "4OAuvHryIVv4kMDNSLuPt6",
+      "uri": "spotify:track:4OAuvHryIVv4kMDNSLuPt6",
+      "popularity": 78
+    },
+    {
+      "name": "Our Song",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T04:34:36.091000+00:00",
+      "id": "43H3q2NWT9LCuYS1B5IUvV",
+      "uri": "spotify:track:43H3q2NWT9LCuYS1B5IUvV",
+      "popularity": 64
+    },
+    {
+      "name": "Diet Pepsi",
+      "artist": "Addison Rae",
+      "played_at": "2025-08-14T04:34:36.085000+00:00",
+      "id": "6ouhsRJ7gExB7LCYjITk4Y",
+      "uri": "spotify:track:6ouhsRJ7gExB7LCYjITk4Y",
+      "popularity": 82
+    },
+    {
+      "name": "The Archer",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T04:31:06.052000+00:00",
+      "id": "3pHkh7d0lzM2AldUtz2x37",
+      "uri": "spotify:track:3pHkh7d0lzM2AldUtz2x37",
+      "popularity": 76
+    },
+    {
+      "name": "Red",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-14T04:27:05.960000+00:00",
+      "id": "0cITLOYn1Sv4q27zZPqlNK",
+      "uri": "spotify:track:0cITLOYn1Sv4q27zZPqlNK",
+      "popularity": 64
+    },
+    {
+      "name": "New Romantics",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T17:56:19.897000+00:00",
+      "id": "0qAIiGFKLdV1xpNlEhjpq8",
+      "uri": "spotify:track:0qAIiGFKLdV1xpNlEhjpq8",
+      "popularity": 66
+    },
+    {
+      "name": "Message In A Bottle (Taylor's Version) (From The Vault)",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T17:04:05.325000+00:00",
+      "id": "3z6XUommYDWPHeFhmhhT6j",
+      "uri": "spotify:track:3z6XUommYDWPHeFhmhhT6j",
+      "popularity": 73
+    },
+    {
+      "name": "New Romantics",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T17:04:05.266000+00:00",
+      "id": "0qAIiGFKLdV1xpNlEhjpq8",
+      "uri": "spotify:track:0qAIiGFKLdV1xpNlEhjpq8",
+      "popularity": 66
+    },
+    {
+      "name": "King Of My Heart",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T15:27:19.968000+00:00",
+      "id": "7HuBDWi18s4aJM8UFnNheH",
+      "uri": "spotify:track:7HuBDWi18s4aJM8UFnNheH",
+      "popularity": 73
+    },
+    {
+      "name": "New Romantics",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T15:23:49.377000+00:00",
+      "id": "0qAIiGFKLdV1xpNlEhjpq8",
+      "uri": "spotify:track:0qAIiGFKLdV1xpNlEhjpq8",
+      "popularity": 66
+    },
+    {
+      "name": "Dancing With Our Hands Tied",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T15:19:49.876000+00:00",
+      "id": "7I7JbDv63ZJJsSi24DyJrz",
+      "uri": "spotify:track:7I7JbDv63ZJJsSi24DyJrz",
+      "popularity": 73
+    },
+    {
+      "name": "All You Had To Do Was Stay",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T15:16:19.799000+00:00",
+      "id": "4NNolUeL5m2ju7kf8pdg6H",
+      "uri": "spotify:track:4NNolUeL5m2ju7kf8pdg6H",
+      "popularity": 62
+    },
+    {
+      "name": "All Of The Girls You Loved Before",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-13T15:07:04.079000+00:00",
+      "id": "4P9Q0GojKVXpRTJCaL3kyy",
+      "uri": "spotify:track:4P9Q0GojKVXpRTJCaL3kyy",
+      "popularity": 74
+    },
+    {
+      "name": "Guzarish",
+      "artist": "Javed Ali",
+      "played_at": "2025-08-13T07:51:14.067000+00:00",
+      "id": "2MvCNH9ua0CeOgUQfZf56z",
+      "uri": "spotify:track:2MvCNH9ua0CeOgUQfZf56z",
+      "popularity": 71
+    },
+    {
+      "name": "Guzarish",
+      "artist": "Javed Ali",
+      "played_at": "2025-08-13T06:27:12.293000+00:00",
+      "id": "2MvCNH9ua0CeOgUQfZf56z",
+      "uri": "spotify:track:2MvCNH9ua0CeOgUQfZf56z",
+      "popularity": 71
+    },
+    {
+      "name": "Pardesiya - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Sonu Nigam, Krishnakali Saha, Amitabh Bhattacharya",
+      "played_at": "2025-08-13T06:22:37.358000+00:00",
+      "id": "0q84FggW57NXGtLHoetS0Y",
+      "uri": "spotify:track:0q84FggW57NXGtLHoetS0Y",
+      "popularity": 78
+    },
+    {
+      "name": "Finding Her",
+      "artist": "Kushagra, Bharath, Saaheal",
+      "played_at": "2025-08-13T06:17:07.411000+00:00",
+      "id": "5ThyDv6aRVU8AH4vXQNldF",
+      "uri": "spotify:track:5ThyDv6aRVU8AH4vXQNldF",
+      "popularity": 84
+    },
+    {
+      "name": "Finding Her",
+      "artist": "Kushagra, Bharath, Saaheal",
+      "played_at": "2025-08-11T17:08:07.373000+00:00",
+      "id": "5ThyDv6aRVU8AH4vXQNldF",
+      "uri": "spotify:track:5ThyDv6aRVU8AH4vXQNldF",
+      "popularity": 84
+    },
+    {
+      "name": "Pardesiya - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Sonu Nigam, Krishnakali Saha, Amitabh Bhattacharya",
+      "played_at": "2025-08-11T13:06:54.856000+00:00",
+      "id": "0q84FggW57NXGtLHoetS0Y",
+      "uri": "spotify:track:0q84FggW57NXGtLHoetS0Y",
+      "popularity": 78
+    },
+    {
+      "name": "Tum Ho Toh (From \"Saiyaara\")",
+      "artist": "Vishal Mishra, Hansika Pareek, Raj Shekhar",
+      "played_at": "2025-08-11T13:02:55.223000+00:00",
+      "id": "6G8vN5EUtcDxOXOXadF6kp",
+      "uri": "spotify:track:6G8vN5EUtcDxOXOXadF6kp",
+      "popularity": 81
+    },
+    {
+      "name": "Thodi Si Daaru",
+      "artist": "AP Dhillon, Shreya Ghoshal",
+      "played_at": "2025-08-11T12:57:54.775000+00:00",
+      "id": "3JiLQJmVW7d4O8AQDFB3oj",
+      "uri": "spotify:track:3JiLQJmVW7d4O8AQDFB3oj",
+      "popularity": 79
+    },
+    {
+      "name": "Womanizer",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-11T05:20:57.239000+00:00",
+      "id": "4fixebDZAVToLbUCuEloa2",
+      "uri": "spotify:track:4fixebDZAVToLbUCuEloa2",
+      "popularity": 80
+    },
+    {
+      "name": "Womanizer",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-11T05:20:36.708000+00:00",
+      "id": "4fixebDZAVToLbUCuEloa2",
+      "uri": "spotify:track:4fixebDZAVToLbUCuEloa2",
+      "popularity": 80
+    },
+    {
+      "name": "It's Gonna Be Me",
+      "artist": "*NSYNC",
+      "played_at": "2025-08-10T19:22:14.346000+00:00",
+      "id": "2AW37v0bDyuOzGP3XnmFuA",
+      "uri": "spotify:track:2AW37v0bDyuOzGP3XnmFuA",
+      "popularity": 74
+    },
+    {
+      "name": "It's Gonna Be Me",
+      "artist": "*NSYNC",
+      "played_at": "2025-08-08T17:17:17.690000+00:00",
+      "id": "2AW37v0bDyuOzGP3XnmFuA",
+      "uri": "spotify:track:2AW37v0bDyuOzGP3XnmFuA",
+      "popularity": 74
+    },
+    {
+      "name": "...Baby One More Time",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-08T15:49:57.037000+00:00",
+      "id": "3MjUtNVVq3C8Fn0MP3zhXa",
+      "uri": "spotify:track:3MjUtNVVq3C8Fn0MP3zhXa",
+      "popularity": 82
+    },
+    {
+      "name": "Oops!...I Did It Again",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-08T15:46:27.445000+00:00",
+      "id": "6naxalmIoLFWR0siv8dnQQ",
+      "uri": "spotify:track:6naxalmIoLFWR0siv8dnQQ",
+      "popularity": 82
+    },
+    {
+      "name": "Gimme More",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-08T15:42:58.633000+00:00",
+      "id": "6ic8OlLUNEATToEFU3xmaH",
+      "uri": "spotify:track:6ic8OlLUNEATToEFU3xmaH",
+      "popularity": 84
+    },
+    {
+      "name": "Toxic",
+      "artist": "Britney Spears",
+      "played_at": "2025-08-08T15:38:35.258000+00:00",
+      "id": "6I9VzXrHxO9rA9A5euc8Ak",
+      "uri": "spotify:track:6I9VzXrHxO9rA9A5euc8Ak",
+      "popularity": 85
+    },
+    {
+      "name": "Umbrella",
+      "artist": "Rihanna, JAY-Z",
+      "played_at": "2025-08-08T15:34:27.870000+00:00",
+      "id": "49FYlytm3dAAraYgpoJZux",
+      "uri": "spotify:track:49FYlytm3dAAraYgpoJZux",
+      "popularity": 84
+    },
+    {
+      "name": "Jugraafiya - From \"Super 30\"",
+      "artist": "Udit Narayan, Shreya Ghoshal",
+      "played_at": "2025-08-08T15:29:57.240000+00:00",
+      "id": "2TYxwTH2HhL6OLVkZlsDLV",
+      "uri": "spotify:track:2TYxwTH2HhL6OLVkZlsDLV",
+      "popularity": 75
+    },
+    {
+      "name": "Pardesiya - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Sonu Nigam, Krishnakali Saha, Amitabh Bhattacharya",
+      "played_at": "2025-08-08T15:19:59.986000+00:00",
+      "id": "0q84FggW57NXGtLHoetS0Y",
+      "uri": "spotify:track:0q84FggW57NXGtLHoetS0Y",
+      "popularity": 78
+    },
+    {
+      "name": "Bheegi Saree - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Shreya Ghoshal, Adnan Sami, Amitabh Bhattacharya",
+      "played_at": "2025-08-08T15:11:55.419000+00:00",
+      "id": "3z47FzesU0MyJKwpCGxOMp",
+      "uri": "spotify:track:3z47FzesU0MyJKwpCGxOMp",
+      "popularity": 63
+    },
+    {
+      "name": "Bheegi Saree - From \"Param Sundari\"",
+      "artist": "Sachin-Jigar, Shreya Ghoshal, Adnan Sami, Amitabh Bhattacharya",
+      "played_at": "2025-08-08T13:40:48.267000+00:00",
+      "id": "3z47FzesU0MyJKwpCGxOMp",
+      "uri": "spotify:track:3z47FzesU0MyJKwpCGxOMp",
+      "popularity": 63
+    },
+    {
+      "name": "Sajde",
+      "artist": "Faheem Abdullah, Huzaif Nazar",
+      "played_at": "2025-08-08T13:36:22.188000+00:00",
+      "id": "4BGfzLrK6lgvKDjKSU7wrN",
+      "uri": "spotify:track:4BGfzLrK6lgvKDjKSU7wrN",
+      "popularity": 76
+    },
+    {
+      "name": "Lavender Haze",
+      "artist": "Taylor Swift",
+      "played_at": "2025-08-07T17:16:48.360000+00:00",
+      "id": "5jQI2r1RdgtuT8S3iG8zFC",
+      "uri": "spotify:track:5jQI2r1RdgtuT8S3iG8zFC",
+      "popularity": 74
+    }
+  ],
+  "playlists": [
+    {
+      "name": "And, baby, that’s show business for you ❤️‍🔥",
+      "description": "",
+      "tracks_total": 22,
+      "id": "65uAjFTt4N8sEJeonhNOBL",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;sad playlist...&#x27;",
+      "tracks_total": 17,
+      "id": "7ue97Wa1YMt0ha6sr9EOJ6",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;romantic playlist...&#x27;",
+      "tracks_total": 17,
+      "id": "4Ri4vx53nrIMbO60eYhzeR",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;chill playlist...&#x27;",
+      "tracks_total": 17,
+      "id": "5uCN428Gt6zuFlGfOpmRkL",
+      "public": true
+    },
+    {
+      "name": "Soulful Vibes",
+      "description": "AI-generated playlist based on: &#x27;soulful...&#x27;",
+      "tracks_total": 17,
+      "id": "21gqMu2OQMXlihJfUC4sPy",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;happy...&#x27;",
+      "tracks_total": 17,
+      "id": "4nExaSX23FILQW1aUnEuxX",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;happy...&#x27;",
+      "tracks_total": 17,
+      "id": "4ttyvtb6Oh3bRUxvT2XhKS",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;sad...&#x27;",
+      "tracks_total": 17,
+      "id": "7npvROBf124KmfCZ5zy3wh",
+      "public": true
+    },
+    {
+      "name": "Chill Vibes",
+      "description": "AI-generated playlist based on: &#x27;chill...&#x27;",
+      "tracks_total": 17,
+      "id": "7pwTYyEF9N7hUfARzTvbWL",
+      "public": true
+    },
+    {
+      "name": "Romantic Songs",
+      "description": "AI-generated playlist based on: &#x27;romantic songs...&#x27;",
+      "tracks_total": 17,
+      "id": "1H2c8sIGSe43Vn4UczTMMq",
+      "public": true
+    },
+    {
+      "name": "Workout Playlist",
+      "description": "AI-generated playlist based on: &#x27;high energy workout songs...&#x27;",
+      "tracks_total": 17,
+      "id": "4WQmoIaBVKMbZpsAfnI7iN",
+      "public": true
+    },
+    {
+      "name": "Calming Playlist",
+      "description": "AI-generated playlist based on: &#x27;calming songs...&#x27;",
+      "tracks_total": 17,
+      "id": "5jpVBQwDDFZKb5YFMcjJ0j",
+      "public": true
+    },
+    {
+      "name": "Chill English Playlist",
+      "description": "AI-generated playlist based on: &#x27;chill english songs...&#x27;",
+      "tracks_total": 17,
+      "id": "0BHDlnTZOLKgT5bO2mVb7a",
+      "public": true
+    },
+    {
+      "name": "Sad Hindi Playlist",
+      "description": "AI-generated playlist based on: &#x27;sad hindi songs...&#x27;",
+      "tracks_total": 17,
+      "id": "0t5XglsLVN0RnyI21hzdMC",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;sad romantic playlist...&#x27;",
+      "tracks_total": 17,
+      "id": "7fPljJcbvhxPIaI60RAGL3",
+      "public": true
+    },
+    {
+      "name": "AI Generated Playlist",
+      "description": "AI-generated playlist based on: &#x27;chill playlist...&#x27;",
+      "tracks_total": 15,
+      "id": "3Uu1DYDogq11XAS6bJl4aS",
+      "public": true
+    },
+    {
+      "name": "Chill Playlist for Relaxing",
+      "description": "AI-generated playlist based on: &#x27;chill playlist for relaxing...&#x27;",
+      "tracks_total": 15,
+      "id": "60tUigNtHePu0EIGFaKioF",
+      "public": true
+    },
+    {
+      "name": "Romantic Hindi Songs",
+      "description": "AI-generated playlist based on: &#x27;romantic hindi songs...&#x27;",
+      "tracks_total": 17,
+      "id": "44xRefZBHFM3ORbzOduB3k",
+      "public": true
+    },
+    {
+      "name": "Chill Playlist for Relaxing",
+      "description": "AI-generated playlist based on: &#x27;chill playlist for relaxing...&#x27;",
+      "tracks_total": 17,
+      "id": "01N84VLFuOa6JMeyeOWQJQ",
+      "public": true
+    },
+    {
+      "name": "Romantic Hindi Songs by Arijit Singh",
+      "description": "AI-generated playlist based on: &#x27;romantic hindi songs by Arijit Singh...&#x27;",
+      "tracks_total": 17,
+      "id": "19OkCmlVMZETnzskaD9G7V",
+      "public": true
+    },
+    {
+      "name": "Chill Hindi Vibes",
+      "description": "AI-generated playlist based on: chill hindi songs...",
+      "tracks_total": 17,
+      "id": "3DK0rdeB4mUzd2e5EGd34V",
+      "public": true
+    },
+    {
+      "name": "Happy Songs Playlist",
+      "description": "AI-generated playlist based on: happy songs...",
+      "tracks_total": 17,
+      "id": "6UAxW4W1RlwVSqEca6lu1Z",
+      "public": true
+    },
+    {
+      "name": "Sad Hindi Playlist",
+      "description": "AI-generated playlist based on: sad hindi songs...",
+      "tracks_total": 17,
+      "id": "5Fztsx9EX7G84ThuOybKND",
+      "public": true
+    },
+    {
+      "name": "My playlist #2",
+      "description": "",
+      "tracks_total": 5,
+      "id": "2hLoKr619YnUmA9YZsNQmz",
+      "public": true
+    },
+    {
+      "name": "My playlist #1",
+      "description": "",
+      "tracks_total": 6,
+      "id": "1LzcDtRoDdddHwc2rAw3vn",
+      "public": true
+    },
+    {
+      "name": "Selena Gomez - The Hits",
+      "description": "",
+      "tracks_total": 107,
+      "id": "0BNbXvvCKhsuuZiMZAlvbU",
+      "public": true
+    },
+    {
+      "name": "90s Bollywood Hits",
+      "description": "An Ultimate collection of 90s Bollywood hit songs.",
+      "tracks_total": 405,
+      "id": "6zpuLiJGENIUsl9tTQ4e6p",
+      "public": true
+    },
+    {
+      "name": "",
+      "description": "",
+      "tracks_total": 28,
+      "id": "70VQP8EHThS1uGVRq0qN9Z",
+      "public": true
+    },
+    {
+      "name": "Lata Mangeshkar Old Hits",
+      "description": "melodious collection of golden era of bollywood",
+      "tracks_total": 184,
+      "id": "7jNLdzWCno4r9UWxN7eC7Q",
+      "public": true
+    },
+    {
+      "name": "Friends",
+      "description": "You spoke, we listened. An awesome fan-fueled playlist of the best songs from the hit TV series, <a href=\"https://www.facebook.com/friends.tv?fref=ts\">Friends! </a>",
+      "tracks_total": 16,
+      "id": "7sfsAupFz7Bw1aoLg9GB4h",
+      "public": true
+    },
+    {
+      "name": "best pop songs right now",
+      "description": "EVERYTHING&#x27;S GNARLY !!!!!!!!!!!  &#x2F;&#x2F; cover: katseye &#x2F;&#x2F;&#x2F; pop songs, pop music, new pop songs, new music friday, todays top hits, taylor swift, taylor swift song, taylor swift album, new music, new songs, pop playlist, music playlist, good music",
+      "tracks_total": 67,
+      "id": "6jCodg9wicLCfedACbNL9z",
+      "public": true
+    }
+  ]
+}

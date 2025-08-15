@@ -248,7 +248,7 @@ class SpotifyHandler:
             
             logger.info(f"Getting recommendations with {len(valid_seeds)} seed tracks")
             recommendations = self.client.recommendations(
-                seed_tracks=valid_seeds,
+                track_ids=valid_seeds,
                 limit=limit
             )
             

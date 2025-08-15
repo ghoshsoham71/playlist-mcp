@@ -248,7 +248,18 @@ def setup_mcp_server() -> FastMCP:
         duration_minutes: int = 60,
         playlist_name: str = "AI Generated Playlist"
     ) -> List[TextContent]:
-        """Generate a Spotify playlist based on a prompt."""
+        """Generate a Spotify playlist based on a prompt. Requires authentication first."""
+        
+        if not spotify_handler or not spotify_handler.is_authenticated():
+            return [TextContent(
+                type="text",
+                text=(
+                    "❌ **Not authenticated with Spotify!**\n\n"
+                    "Please use the 'authenticate' tool first to connect your Spotify account.\n"
+                    "After authorization, use 'complete_auth' with the code from the redirect URL."
+                )
+            )]
+        
         return await generate_spotify_playlist(prompt, duration_minutes, playlist_name)
     
     return server
