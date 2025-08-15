@@ -28,8 +28,13 @@ class SpotifyHandler:
             raise ValueError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set")
         
         port = int(os.getenv("PORT", 10000))
-        self.redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", f"http://localhost:{port}/spotify/callback")
-        
+        self.redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI")
+        if not self.redirect_uri:
+            # Fallback for local development only
+            port = int(os.getenv("PORT", 10000))
+            self.redirect_uri = f"http://127.0.0.1:{port}/spotify/callback"
+            logger.warning(f"No SPOTIFY_REDIRECT_URI set, using fallback: {self.redirect_uri}")
+
         self.cred = tk.Credentials(
             client_id=self.client_id,
             client_secret=self.client_secret,

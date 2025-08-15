@@ -45,7 +45,7 @@ An intelligent MCP (Model Context Protocol) server that generates personalized S
    python main.py
    ```
 
-The server will start on `http://localhost:10000` by default.
+The server will start on `http://127.0.0.1:10000` by default.
 
 ## 🔧 Configuration
 
@@ -73,7 +73,7 @@ MY_NUMBER=+1234567890
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Create a new app
 3. Note your Client ID and Client Secret
-4. Add redirect URI: `http://localhost:10000/callback`
+4. Add redirect URI: `http://127.0.0.1:10000/callback`
 5. Add the required scopes (handled automatically by the app)
 
 ### Google Gemini API Setup
@@ -86,7 +86,7 @@ MY_NUMBER=+1234567890
 
 ### 1. Health Check
 ```bash
-curl http://localhost:10000/health
+curl http://127.0.0.1:10000/health
 ```
 
 ### 2. Authenticate with Spotify

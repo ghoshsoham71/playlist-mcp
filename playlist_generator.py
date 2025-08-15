@@ -33,7 +33,7 @@ class PlaylistGenerator:
             if gemini_api_key:
                 try:
                     configure(api_key=gemini_api_key)
-                    self.model = GenerativeModel('gemini-1.5-flash')
+                    self.model = GenerativeModel('gemini-2.0-flash')
                     logger.info("Playlist generator initialized with Gemini")
                 except Exception as e:
                     logger.warning(f"Failed to initialize Gemini: {e}")

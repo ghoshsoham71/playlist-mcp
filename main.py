@@ -70,7 +70,7 @@ Click this link to authorize the app:
 After authorization, you'll be redirected back. Then use the 'complete_auth' tool with the authorization code from the URL.
 
 The authorization code will be in the URL after 'code='. For example:
-http://localhost:10000/spotify/callback?code=YOUR_CODE_HERE
+http://127.0.0.1:10000/spotify/callback?code=YOUR_CODE_HERE
 
 Copy the YOUR_CODE_HERE part and use it with the 'complete_auth' tool."""
             )]
