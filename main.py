@@ -185,6 +185,8 @@ def setup_mcp_server() -> FastMCP:
         duration_minutes: int = 60,
         playlist_name: str = "AI Generated Playlist"
     ) -> List[TextContent]:
+        await authenticate_spotify()
+        await fetch_user_data()
         return await generate_spotify_playlist(prompt, duration_minutes, playlist_name)
     
     return server
